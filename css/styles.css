@@ -2202,3 +2202,14 @@ button.yr-dtag:hover { border-color: var(--red); color: var(--red); }
   .mast-nav .nav-full { display: none; }
   .mast-nav .nav-short { display: inline; }
 }
+
+/* синхронізація */
+.sync-btn { font-weight: 700; }
+.sync-btn.is-off { color: var(--red); }
+.sync-btn.is-ok { color: var(--ink); }
+.sync-btn.is-busy { color: var(--gray-2); }
+.sync-btn.is-offline { color: var(--gray-2); }
+.sync-btn.is-error { color: var(--red); }
+.sync-who { font-size: 13px; font-weight: 600; }
+.sync-code[hidden] { display: none; }
+.sync-note.warn { color: var(--red); }

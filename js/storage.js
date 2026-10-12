@@ -21,6 +21,7 @@ window.LP = window.LP || {};
     save(data) {
       try {
         localStorage.setItem(KEY, JSON.stringify(data));
+        if (LP.storage.afterSave) LP.storage.afterSave();
         return true;
       } catch (e) {
         console.error('Не вдалося зберегти дані', e);
