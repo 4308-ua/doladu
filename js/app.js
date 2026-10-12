@@ -228,8 +228,16 @@ window.LP = window.LP || {};
         <label class="check"><input type="checkbox" name="grain" ${s.grain !== false ? 'checked' : ''}> Зернистість — плівкове зерно поверх усього</label>
         <label class="check"><input type="checkbox" name="orderWarnings" ${s.orderWarnings !== false ? 'checked' : ''}> Попереджати про важкі задачі підряд</label>
         <label class="check"><input type="checkbox" name="fitDay" ${s.fitDay !== false ? 'checked' : ''}> Весь день на екрані без прокрутки (масштаб підлаштовується під вікно)</label>
+        <div class="field tg-set"><span>Нагадування в Telegram</span>
+          <div class="row">
+            <label class="field"><span>Твій Telegram ID</span><input type="text" name="tgChat" inputmode="numeric" value="${LP.u.esc(s.tgChat || '')}" placeholder="123456789"></label>
+            <label class="field"><span>Нагадувати</span><select name="remindBefore">${[[-1, 'не нагадувати'], [0, 'на початку'], [5, 'за 5 хв'], [10, 'за 10 хв'], [15, 'за 15 хв'], [30, 'за 30 хв'], [60, 'за годину']].map(([v, t]) => `<option value="${v}" ${v === s.remindBefore ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+            <label class="field"><span>План на день</span><select name="morningAt">${[[-1, 'не надсилати']].concat([6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10].map((h) => [h * 60, LP.u.fmtTime(h * 60)])).map(([v, t]) => `<option value="${v}" ${v === s.morningAt ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+          </div>
+          <p class="hint">ID дізнаєшся в Telegram у боті @userinfobot (рядок «Id»). Потім напиши своєму боту /start — інакше він не зможе тобі писати. Працює, коли ввімкнено вхід (синхронізація).</p>
+        </div>
         <div class="storage-meter"><span class="label">ДАНІ</span>
-          <p class="hint">Зберігаються в цьому браузері (Opera) на цьому компʼютері — у сховищі сторінки (localStorage). Зайнято ${(JSON.stringify(LP.data).length * 2 / 1024).toFixed(0)} КБ з приблизно 5 000 КБ. Найбільше місця беруть картинки цілей.</p></div>
+          <p class="hint">Зберігаються в цьому браузері, а після входу — ще й у хмарі (синхронізуються між пристроями). Зайнято ${(JSON.stringify(LP.data).length * 2 / 1024).toFixed(0)} КБ з приблизно 5 000 КБ. Найбільше місця беруть картинки цілей.</p></div>
         <p class="hint">Ctrl+Z — відкотити останню дію, Ctrl+Y — повернути. Історія дій живе, поки відкрита сторінка.</p>
         <p class="hint">Регулярно роби «Експорт» — це твоя резервна копія у файл.</p>`,
       extra: [{
@@ -250,6 +258,9 @@ window.LP = window.LP || {};
         s.grain = form.grain.checked;
         s.orderWarnings = form.orderWarnings.checked;
         s.accent = form.querySelector('input[name=accent]:checked').value;
+        s.tgChat = form.tgChat.value.trim();
+        s.remindBefore = parseInt(form.remindBefore.value, 10);
+        s.morningAt = parseInt(form.morningAt.value, 10);
         LP.view.calScroll = null;
         LP.save();
       },

@@ -170,6 +170,10 @@ window.LP = window.LP || {};
       fitDay: !(d.settings && d.settings.fitDay === false),
       orderWarnings: !(d.settings && d.settings.orderWarnings === false),
       grain: !(d.settings && d.settings.grain === false),
+      // Telegram: куди писати, за скільки хвилин нагадувати (-1 — ні), о котрій надсилати план дня (-1 — ні)
+      tgChat: d.settings && d.settings.tgChat ? String(d.settings.tgChat).trim() : '',
+      remindBefore: d.settings && Number.isFinite(d.settings.remindBefore) ? d.settings.remindBefore : 10,
+      morningAt: d.settings && Number.isFinite(d.settings.morningAt) ? d.settings.morningAt : 8 * 60,
       mealsCut: !(d.settings && d.settings.mealsCut === false),
       showSleep: !(d.settings && d.settings.showSleep === false),
       wake: d.settings && Number.isFinite(d.settings.wake) ? d.settings.wake : 8 * 60,
