@@ -1,5 +1,5 @@
 // Синхронізація між пристроями через Supabase.
-// Вхід — кодом з пошти (на iPhone посилання відкрилось би в Safari, а не в застосунку з головного екрана).
+// Вхід — пошта й пароль (без листів: на iPhone посилання з листа відкрилось би в Safari, а не в застосунку з головного екрана).
 // Усі дані — один документ у таблиці planner: перемагає новіша зміна; при першому вході на пристрої — питаємо.
 window.LP = window.LP || {};
 
@@ -57,13 +57,16 @@ window.LP = window.LP || {};
     get email() { return auth && auth.user.email; },
     get status() { return status; },
     get lastOk() { return meta.lastOk || null; },
-    async sendCode(email) {
-      const redirect = /^https?:/.test(location.protocol) ? '?redirect_to=' + encodeURIComponent(location.origin + location.pathname) : '';
-      await api('/auth/v1/otp' + redirect, { method: 'POST', body: { email, create_user: true } });
-    },
-    async verify(email, code) {
-      keepSession(await api('/auth/v1/verify', { method: 'POST', body: { type: 'email', email, token: code.trim() } }));
+    async signIn(email, password) {
+      keepSession(await api('/auth/v1/token?grant_type=password', { method: 'POST', body: { email, password } }));
       meta = {}; saveMeta();
+    },
+    // новий акаунт; якщо в Supabase увімкнено підтвердження пошти — сесії ще немає, треба натиснути посилання в листі
+    async signUp(email, password) {
+      const redirect = /^https?:/.test(location.protocol) ? '?redirect_to=' + encodeURIComponent(location.origin + location.pathname) : '';
+      const r = await api('/auth/v1/signup' + redirect, { method: 'POST', body: { email, password } });
+      if (r && r.access_token) { keepSession(r); meta = {}; saveMeta(); return true; }
+      return false;
     },
     firstSync: () => firstSync(),
     async signOut() {
@@ -195,47 +198,50 @@ window.LP = window.LP || {};
         onSubmit: () => { pull(true); },
       });
     }
-    let email = '';
     LP.modal({
       title: 'Вхід',
-      submitText: 'Надіслати код',
-      body: `<p>Один акаунт — ті самі дані на компі й на телефоні. Пароль не потрібен: прийде лист із кодом.</p>
-        <label class="field"><span>Пошта</span><input type="text" name="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="you@gmail.com"></label>
-        <label class="field sync-code" hidden><span>Код із листа</span><input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="123456"></label>
+      submitText: 'Увійти',
+      body: `<p>Один акаунт — ті самі дані на компі й на телефоні. Увійди тією самою поштою й паролем на кожному пристрої.</p>
+        <label class="field"><span>Пошта</span><input type="text" name="email" inputmode="email" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="you@gmail.com"></label>
+        <label class="field"><span>Пароль (від 6 символів)</span><input type="password" name="password" autocomplete="current-password" minlength="6"></label>
         <p class="hint sync-note"></p>`,
+      extra: [{ text: 'Створити акаунт', onClick: (form) => { go(form, 'up'); return false; } }],
       onOpen: (form) => {
-        const btn = form.querySelector('button[type=submit]');
-        form.addEventListener('submit', async (e) => {
-          // перехоплюємо: вікно не закривається, поки не ввели код
-          e.preventDefault(); e.stopImmediatePropagation();
-          const note = form.querySelector('.sync-note');
-          const codeBox = form.querySelector('.sync-code');
-          try {
-            btn.disabled = true;
-            if (codeBox.hidden) {
-              email = form.email.value.trim().toLowerCase();
-              if (!/^\S+@\S+\.\S+$/.test(email)) throw new Error('Перевір пошту.');
-              await LP.sync.sendCode(email);
-              codeBox.hidden = false;
-              form.email.readOnly = true;
-              btn.textContent = 'Увійти';
-              note.textContent = 'Лист надіслано на ' + email + '. Введи код із нього (на компі можна просто натиснути посилання в листі).';
-              setTimeout(() => form.code.focus(), 30);
-            } else {
-              if (!form.code.value.trim()) throw new Error('Введи код із листа.');
-              await LP.sync.verify(email, form.code.value);
-              LP.closeModal();
-              if (LP.toast) LP.toast('ВХІД ВИКОНАНО');
-              setTimeout(() => firstSync().catch(() => setStatus('error')), 200);
-            }
-          } catch (err) {
-            note.textContent = /rate|limit|seconds/i.test(err.message) ? 'Забагато спроб — зачекай хвилину й спробуй ще.' : /expired|invalid|token/i.test(err.message) ? 'Код не підходить або застарів. Перевір чи надішли новий.' : err.message === 'Failed to fetch' ? 'Немає звʼязку з сервером. Перевір інтернет.' : err.message;
-            note.classList.add('warn');
-          } finally { btn.disabled = false; }
-        }, true);
+        form.addEventListener('submit', (e) => { e.preventDefault(); e.stopImmediatePropagation(); go(form, 'in'); }, true);
       },
       onSubmit: () => false,
     });
+    async function go(form, mode) {
+      const note = form.querySelector('.sync-note');
+      const btns = form.querySelectorAll('.modal-foot button');
+      note.classList.remove('warn');
+      try {
+        const email = form.email.value.trim().toLowerCase();
+        const password = form.password.value;
+        if (!/^\S+@\S+\.\S+$/.test(email)) throw new Error('Перевір пошту.');
+        if (password.length < 6) throw new Error('Пароль — щонайменше 6 символів.');
+        btns.forEach((b) => (b.disabled = true));
+        note.textContent = mode === 'up' ? 'Створюю акаунт…' : 'Входжу…';
+        if (mode === 'up') {
+          const ok = await LP.sync.signUp(email, password);
+          if (!ok) {
+            note.textContent = 'Акаунт створено. На ' + email + ' прийшов лист — натисни в ньому посилання, а потім тут «Увійти».';
+            return;
+          }
+        } else await LP.sync.signIn(email, password);
+        LP.closeModal();
+        if (LP.toast) LP.toast('ВХІД ВИКОНАНО');
+        setTimeout(() => firstSync().catch(() => setStatus('error')), 200);
+      } catch (err) {
+        const m = err.message || '';
+        note.textContent = /invalid login|invalid_credentials|invalid grant/i.test(m) ? 'Пошта або пароль не підходять. Ще немає акаунта — натисни «Створити акаунт».'
+          : /not confirmed/i.test(m) ? 'Пошту ще не підтверджено — натисни посилання в листі від Supabase, потім «Увійти».'
+          : /already registered|already exists/i.test(m) ? 'Такий акаунт уже є — просто «Увійти».'
+          : /rate|limit|seconds/i.test(m) ? 'Забагато спроб — зачекай хвилину.'
+          : m === 'Failed to fetch' ? 'Немає звʼязку з сервером. Перевір інтернет.' : m;
+        note.classList.add('warn');
+      } finally { btns.forEach((b) => (b.disabled = false)); }
+    }
   };
 
   // вхід за посиланням із листа (на компі): токени приходять у хеші адреси
