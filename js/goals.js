@@ -47,11 +47,12 @@ window.LP = window.LP || {};
     const problems = LP.validateGoal(g);
     const weekGoals = LP.data.goals.filter((w) => w.level === 'week' && w.parentId === g.id);
     const gt = LP.goalTime(g);
-    const spent = gt.minutes ? `<span title="Усі виконані справи, привʼязані до цілі">ВИТРАЧЕНО ${u.fmtHours(gt.minutes).toUpperCase()}</span>` : '';
+    const spent = `<span class="${gt.minutes ? 'gt-on' : ''}" title="Години виконаних справ цілі (рахуються, коли ставиш галочку в розкладі)">ВИТРАЧЕНО ${u.fmtHours(gt.minutes).toUpperCase()}${gt.planned ? ` · ЗАПЛАНОВАНО ${u.fmtHours(gt.planned).toUpperCase()}` : ''}</span>`;
     const looseHtml = gt.loose.length ? `
       <div class="goal-loose">
         <div class="label">ЗАГАЛОМ ДЛЯ ЦІЛІ — БЕЗ ПІДЦІЛІ</div>
-        <ul>${gt.loose.map((it) => `<li><span class="gl-title">${u.esc(it.title)}</span><span class="mono">${it.count > 1 ? '×' + it.count + ' · ' : ''}${u.fmtHours(it.minutes).toUpperCase()}</span><span class="mono muted">${u.fmtDay(it.last).toUpperCase()}</span></li>`).join('')}</ul>
+        <ul>${gt.loose.map((it) => `<li class="${it.minutes ? '' : 'is-plan'}"><span class="gl-title">${u.esc(it.title)}</span><span class="mono">${it.minutes ? `${it.count > 1 ? '×' + it.count + ' · ' : ''}${u.fmtHours(it.minutes).toUpperCase()}` : ''}${it.planned ? `${it.minutes ? ' + ' : ''}${u.fmtHours(it.planned).toUpperCase()} У ПЛАНІ` : ''}</span><span class="mono muted">${u.fmtDay(it.last || it.next).toUpperCase()}</span></li>`).join('')}</ul>
+        <p class="hint">Години зараховуються, коли ставиш галочку «виконано» на справі в розкладі.</p>
       </div>` : '';
     const summary = subs.length
       ? `ПІДЦІЛІ ${subs.filter((s) => LP.subProgress(g, s).ratio >= 1).length}/${subs.length}`

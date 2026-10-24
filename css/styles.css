@@ -2224,3 +2224,6 @@ input[type="password"] { width: 100%; height: 38px; padding: 0 10px; border: 2px
 .goal-loose li { display: grid; grid-template-columns: minmax(0, 1fr) auto 64px; gap: 10px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--line-soft, #ddd); font-size: 14px; }
 .goal-loose .gl-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .goal-loose .mono { font-size: 10.5px; text-align: right; }
+.goal-bar-row .gt-on { color: var(--ink); font-weight: 600; }
+.goal-loose li.is-plan .gl-title { font-weight: 500; color: var(--gray-2); }
+.goal-loose .hint { margin: 6px 0 0; font-size: 11px; }

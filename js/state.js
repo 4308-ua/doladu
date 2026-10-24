@@ -366,22 +366,33 @@ window.LP = window.LP || {};
 
   // Скільки часу пішло на ціль загалом (усі виконані справи, з підціллю й без) і що зроблено без підцілі
   LP.goalTime = function (g) {
-    let minutes = 0;
+    let minutes = 0, planned = 0;
     const loose = new Map();
-    for (const e of LP.data.events) {
-      if (e.goalId !== g.id || !e.doneDates.length) continue;
-      const m = e.doneDates.length * (e.end - e.start);
-      minutes += m;
-      if (e.subgoalId && LP.subgoal(g, e.subgoalId)) continue;
-      const key = e.title.replace(/ · \d+\/\d+$/, '').trim().toLowerCase();
-      const it = loose.get(key) || { title: e.title.replace(/ · \d+\/\d+$/, ''), count: 0, minutes: 0, last: '' };
-      it.count += e.doneDates.length;
-      it.minutes += m;
-      const last = e.doneDates.slice().sort().pop();
-      if (last > it.last) it.last = last;
+    const today = u.today();
+    const add = (e, m, plan, date) => {
+      if (e.subgoalId && LP.subgoal(g, e.subgoalId)) return;
+      const name = e.title.replace(/ · \d+\/\d+$/, '').trim();
+      const key = name.toLowerCase();
+      const it = loose.get(key) || { title: name, count: 0, minutes: 0, planned: 0, last: '', next: '' };
+      if (plan) { it.planned += m; if (!it.next || date < it.next) it.next = date; } else { it.count += 1; it.minutes += m; if (date > it.last) it.last = date; }
       loose.set(key, it);
+    };
+    for (const e of LP.data.events) {
+      if (e.goalId !== g.id) continue;
+      const len = e.end - e.start;
+      e.doneDates.forEach((d) => { minutes += len; add(e, len, false, d); });
     }
-    return { minutes, loose: Array.from(loose.values()).sort((a, b) => (a.last < b.last ? 1 : -1)) };
+    // заплановане й ще не виконане: від сьогодні до кінця тижня (щотижневі) і всі майбутні разові
+    const we = u.addDays(u.weekStart(today), 6);
+    LP.occurrences(today, we).forEach((o) => {
+      if (o.ev.goalId !== g.id || o.done || o.ev.repeat !== 'weekly') return;
+      planned += o.ev.end - o.ev.start; add(o.ev, o.ev.end - o.ev.start, true, o.date);
+    });
+    LP.data.events.forEach((e) => {
+      if (e.goalId !== g.id || e.repeat === 'weekly' || e.date < today || e.doneDates.includes(e.date)) return;
+      planned += e.end - e.start; add(e, e.end - e.start, true, e.date);
+    });
+    return { minutes, planned, loose: Array.from(loose.values()).sort((a, b) => ((a.last || a.next) < (b.last || b.next) ? 1 : -1)) };
   };
   LP.subProgress = (g, s) => measure(g.id, s.id, s.kind, s.target, s.extra, s.unit);
   LP.ownProgress = (g) => measure(g.id, null, g.kind, g.target, g.extra, g.unit);
