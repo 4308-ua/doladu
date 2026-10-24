@@ -1064,7 +1064,7 @@ ${jBtn}</div>`;
       const current = form.subgoalId ? form.subgoalId.value : d.subgoalId;
       const subs = goal ? goal.subgoals.filter((s) => s.title) : [];
       slot.innerHTML = subs.length
-        ? `<select name="subgoalId"><option value="">— обери підціль —</option>${subs.map((s) =>
+        ? `<select name="subgoalId"><option value="">— уся ціль, без підцілі —</option>${subs.map((s) =>
             `<option value="${s.id}" ${s.id === current ? 'selected' : ''}>${u.esc(s.title)} · ${u.esc(LP.subProgress(goal, s).label)}</option>`).join('')}</select>`
         : '';
       form.querySelector('.field-sub').hidden = !subs.length;
@@ -1133,7 +1133,6 @@ ${jBtn}</div>`;
         if (v.startsWith('g:')) {
           link.goalId = v.slice(2);
           link.subgoalId = form.subgoalId ? form.subgoalId.value || null : null;
-          if (form.subgoalId && !link.subgoalId) errors.push('Обери підціль, до якої зараховується справа.');
         } else if (v.startsWith('h:')) {
           link.habitId = v.slice(2);
         } else if (v === 'custom') {

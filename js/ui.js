@@ -401,7 +401,7 @@ window.LP = window.LP || {};
     const current = form.subgoalId ? form.subgoalId.value : slot.dataset.selected;
     const subs = g ? g.subgoals.filter((s) => s.title) : [];
     slot.innerHTML = subs.length
-      ? `<select name="subgoalId"><option value="">— обери підціль —</option>${subs.map((s) =>
+      ? `<select name="subgoalId"><option value="">— уся ціль, без підцілі —</option>${subs.map((s) =>
           `<option value="${s.id}" ${s.id === current ? 'selected' : ''}>${u.esc(s.title)} · ${u.esc(LP.subProgress(g, s).label)}</option>`).join('')}</select>`
       : '';
     form.querySelector('.field-sub').hidden = !subs.length;
@@ -433,7 +433,6 @@ window.LP = window.LP || {};
       const errors = [];
       if (!form.title.value.trim()) errors.push('Назви задачу.');
       if (LP.bonusRequired(mood) && !bonus) errors.push('Для важкої задачі придумай бонус — що отримаєш після виконання.');
-      if (form.subgoalId && !form.subgoalId.value) errors.push('Обери підціль.');
       LP.showErrors(form, errors);
       if (errors.length) return false;
       LP.saveTask({

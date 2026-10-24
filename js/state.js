@@ -364,6 +364,25 @@ window.LP = window.LP || {};
     return { done: n, target: t, ratio: t ? Math.min(1, n / t) : 0, label: `${n} / ${t}` };
   }
 
+  // Скільки часу пішло на ціль загалом (усі виконані справи, з підціллю й без) і що зроблено без підцілі
+  LP.goalTime = function (g) {
+    let minutes = 0;
+    const loose = new Map();
+    for (const e of LP.data.events) {
+      if (e.goalId !== g.id || !e.doneDates.length) continue;
+      const m = e.doneDates.length * (e.end - e.start);
+      minutes += m;
+      if (e.subgoalId && LP.subgoal(g, e.subgoalId)) continue;
+      const key = e.title.replace(/ · \d+\/\d+$/, '').trim().toLowerCase();
+      const it = loose.get(key) || { title: e.title.replace(/ · \d+\/\d+$/, ''), count: 0, minutes: 0, last: '' };
+      it.count += e.doneDates.length;
+      it.minutes += m;
+      const last = e.doneDates.slice().sort().pop();
+      if (last > it.last) it.last = last;
+      loose.set(key, it);
+    }
+    return { minutes, loose: Array.from(loose.values()).sort((a, b) => (a.last < b.last ? 1 : -1)) };
+  };
   LP.subProgress = (g, s) => measure(g.id, s.id, s.kind, s.target, s.extra, s.unit);
   LP.ownProgress = (g) => measure(g.id, null, g.kind, g.target, g.extra, g.unit);
 

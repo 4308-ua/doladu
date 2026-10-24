@@ -46,6 +46,13 @@ window.LP = window.LP || {};
     const open = !!LP.view.openGoals[g.id];
     const problems = LP.validateGoal(g);
     const weekGoals = LP.data.goals.filter((w) => w.level === 'week' && w.parentId === g.id);
+    const gt = LP.goalTime(g);
+    const spent = gt.minutes ? `<span title="Усі виконані справи, привʼязані до цілі">ВИТРАЧЕНО ${u.fmtHours(gt.minutes).toUpperCase()}</span>` : '';
+    const looseHtml = gt.loose.length ? `
+      <div class="goal-loose">
+        <div class="label">ЗАГАЛОМ ДЛЯ ЦІЛІ — БЕЗ ПІДЦІЛІ</div>
+        <ul>${gt.loose.map((it) => `<li><span class="gl-title">${u.esc(it.title)}</span><span class="mono">${it.count > 1 ? '×' + it.count + ' · ' : ''}${u.fmtHours(it.minutes).toUpperCase()}</span><span class="mono muted">${u.fmtDay(it.last).toUpperCase()}</span></li>`).join('')}</ul>
+      </div>` : '';
     const summary = subs.length
       ? `ПІДЦІЛІ ${subs.filter((s) => LP.subProgress(g, s).ratio >= 1).length}/${subs.length}`
       : LP.ownProgress(g).label.toUpperCase();
@@ -62,6 +69,7 @@ window.LP = window.LP || {};
         ${LP.progressBar(p)}
         <div class="goal-bar-row mono">
           <button type="button" class="toggle" data-toggle="${g.id}" aria-expanded="${open}">${open ? '▾' : '▸'} ${summary}</button>
+          ${spent}
           ${weekGoals.length ? `<span>ЦІЛЕЙ ТИЖНЯ ${weekGoals.filter(LP.weekGoalDone).length}/${weekGoals.length}</span>` : ''}
           ${problems.length ? `<span class="warn">ПОТРЕБУЄ УВАГИ</span>` : ''}
           <button type="button" class="link-btn" data-edit="${g.id}">ЗМІНИТИ</button>
@@ -71,6 +79,7 @@ window.LP = window.LP || {};
             ${g.description ? `<p class="goal-desc">${u.esc(g.description)}</p>` : ''}
             ${problems.length ? `<p class="warn-note">${problems.map(u.esc).join(' ')} <button type="button" class="link-btn" data-edit="${g.id}">Виправити</button></p>` : ''}
             <ul class="sub-list-view">${subs.length ? subs.map((s, i) => metricRow(g, s, i, total)).join('') : metricRow(g, null, 0, 0)}</ul>
+            ${looseHtml}
           </div>` : ''}
       </article>`;
   }
