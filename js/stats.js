@@ -100,7 +100,8 @@ window.LP = window.LP || {};
     const end = weekEnd < u.today() ? weekEnd : u.today();
     const days = [];
     for (let i = 29; i >= 0; i--) days.push(u.addDays(end, -i));
-    const W = 1000, H = 190, L = 34, R = 12, T = 14, B = 26;
+    const mob = LP.isMobile && LP.isMobile();
+    const W = mob ? 400 : 1000, H = mob ? 230 : 190, L = 34, R = 12, T = 14, B = 26;
     const x = (i) => L + (i / (days.length - 1)) * (W - L - R);
     const y = (v) => T + (1 - v / 10) * (H - T - B);
     const pts = days.map((d, i) => ({ d, i, e: LP.journal(d) })).filter((p) => p.e && p.e.score);
@@ -112,7 +113,7 @@ window.LP = window.LP || {};
     let svg = '';
     [2, 4, 6, 8, 10].forEach((v) => (svg += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" class="mc-grid"/><text x="${L - 8}" y="${y(v) + 4}" class="mc-y">${v}</text>`));
     days.forEach((d, i) => {
-      if (i % 5 === 0 || i === days.length - 1) {
+      if ((mob ? i % 10 === 0 : i % 5 === 0) || i === days.length - 1) {
         const anchor = i === 0 ? 'start' : i === days.length - 1 ? 'end' : 'middle';
         svg += `<text x="${x(i)}" y="${H - 6}" class="mc-x" text-anchor="${anchor}">${u.fmtDay(d)}</text>`;
       }
@@ -147,7 +148,8 @@ window.LP = window.LP || {};
   // Весь графік стану: період на вибір (30 днів, 3 місяці, рік, окремий рік, усе, свої дати)
   function historySvg(from, to) {
     const n = Math.round((u.parse(to) - u.parse(from)) / 864e5);
-    const W = 1100, H = 260, L = 34, R = 14, T = 16, B = 30;
+    const mob = LP.isMobile && LP.isMobile();
+    const W = mob ? 420 : 1100, H = mob ? 300 : 260, L = 34, R = 14, T = 16, B = 30;
     const x = (d) => L + (n ? Math.round((u.parse(d) - u.parse(from)) / 864e5) / n : 0.5) * (W - L - R);
     const y = (v) => T + (1 - v / 10) * (H - T - B);
     const pts = Object.keys(LP.data.journal).filter((d) => d >= from && d <= to && LP.data.journal[d].score).sort();
@@ -155,7 +157,7 @@ window.LP = window.LP || {};
     [2, 4, 6, 8, 10].forEach((v) => (svg += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" class="mc-grid"/><text x="${L - 8}" y="${y(v) + 4}" class="mc-y">${v}</text>`));
     // підписи осі: дні (коротко) або місяці (довго)
     if (n <= 45) {
-      for (let i = 0; i <= n; i += Math.max(1, Math.round(n / 7))) {
+      for (let i = 0; i <= n; i += Math.max(1, Math.round(n / (mob ? 4 : 7)))) {
         const d = u.addDays(from, i);
         svg += `<text x="${x(d)}" y="${H - 8}" class="mc-x" text-anchor="middle">${u.fmtDay(d)}</text>`;
       }
@@ -249,7 +251,8 @@ window.LP = window.LP || {};
     const days = [];
     for (let i = 13; i >= 0; i--) days.push(u.addDays(end, -i));
     const vals = days.map((d) => LP.sleepHours(d));
-    const W = 1000, H = 170, L = 34, R = 10, T = 18, B = 26;
+    const mob = LP.isMobile && LP.isMobile();
+    const W = mob ? 420 : 1000, H = mob ? 220 : 170, L = 34, R = 10, T = 18, B = 26;
     const max = Math.max(10, ...vals);
     const bw = (W - L - R) / days.length;
     const y = (v) => T + (1 - v / max) * (H - T - B);
@@ -262,7 +265,7 @@ window.LP = window.LP || {};
       const txt = (Math.round(v * 10) / 10).toString().replace('.', ',');
       svg += `<rect x="${x.toFixed(1)}" y="${y(v).toFixed(1)}" width="${w.toFixed(1)}" height="${(H - B - y(v)).toFixed(1)}" class="${cls}"><title>${u.fmtDate(d)} — ${txt} год</title></rect>`;
       svg += `<text x="${(x + w / 2).toFixed(1)}" y="${(y(v) - 5).toFixed(1)}" class="sl-val" text-anchor="middle">${txt}</text>`;
-      svg += `<text x="${(x + w / 2).toFixed(1)}" y="${H - 8}" class="mc-x" text-anchor="middle">${u.DAYS_SHORT[u.weekday(d)]} ${u.parse(d).getDate()}</text>`;
+      if (!mob || i % 2 === 0) svg += `<text x="${(x + w / 2).toFixed(1)}" y="${H - 8}" class="mc-x" text-anchor="middle">${mob ? u.parse(d).getDate() : u.DAYS_SHORT[u.weekday(d)] + ' ' + u.parse(d).getDate()}</text>`;
     });
     const past = days.filter((d) => d <= today).map((d) => LP.sleepHours(d));
     const avg = past.length ? (past.reduce((a, b) => a + b, 0) / past.length).toFixed(1).replace('.', ',') : '—';

@@ -179,7 +179,7 @@ window.LP = window.LP || {};
       if (meta.dirty || !isEncrypted(row)) return push();
       meta.lastOk = Date.now(); saveMeta();
       setStatus('ok');
-      if (manual && LP.toast) LP.toast('УСЕ ВЖЕ СИНХРОНІЗОВАНО');
+      if (manual) spin(900);
     } catch (e) { busy = false; failed(e); }
   }
   function failed(e) {
@@ -196,7 +196,7 @@ window.LP = window.LP || {};
     } finally { applying = false; }
     meta.remoteAt = r.at; meta.dirty = false; meta.lastOk = Date.now(); saveMeta();
     setStatus('ok');
-    if (msg && LP.toast) LP.toast(msg);
+    if (msg) spin(1400);
   }
 
   // ================= після входу: ключ і дані =================
@@ -450,14 +450,19 @@ window.LP = window.LP || {};
   }
 
   // ================= кнопка в шапці й вікно акаунта =================
-  const LABEL = { off: 'ВХІД', ok: 'СИНХР.', busy: 'СИНХР…', offline: 'ОФЛАЙН', error: 'СИНХР. !' };
+  // значок синхронізації: стрілочки крутяться, поки йде обмін; ! — помилка; сірий — немає інтернету
+  let spinUntil = 0;
   function paint() {
     const b = document.getElementById('btn-sync');
     if (!b) return;
-    b.className = 'sync-btn is-' + status;
-    b.textContent = (status === 'off' ? '' : '● ') + LABEL[status];
-    b.title = status === 'error' ? 'Не вдалося синхронізувати — натисни, щоб спробувати ще' : status === 'offline' ? 'Немає інтернету — відправлю, щойно зʼявиться' : 'Акаунт · ' + (auth ? auth.user.email : '');
+    const spinning = status === 'busy' || Date.now() < spinUntil;
+    b.classList.remove('is-off', 'is-ok', 'is-busy', 'is-offline', 'is-error');
+    b.classList.add('is-' + status);
+    b.classList.toggle('is-spin', spinning);
+    b.title = status === 'error' ? 'Не вдалося синхронізувати — натисни, щоб спробувати ще' : status === 'offline' ? 'Немає інтернету — відправлю, щойно зʼявиться' : 'Акаунт і синхронізація · ' + (auth ? auth.user.email : '');
+    b.setAttribute('aria-label', b.title);
   }
+  function spin(ms = 1200) { spinUntil = Date.now() + ms; paint(); setTimeout(paint, ms + 30); }
   function fmtAgo(ms) {
     if (!ms) return 'ще ні разу';
     const s = Math.round((Date.now() - ms) / 1000);

@@ -317,14 +317,58 @@ window.LP = window.LP || {};
       }
     }, { passive: false });
 
+    // два пальці на телефоні — масштаб і зсув (щипок)
+    const touches = new Map();
+    let pinch = null;
+    const mid = () => { const [a, b] = [...touches.values()]; return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) || 1 }; };
+    canvas.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'touch') return;
+      touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (touches.size === 2) {
+        const m = mid(), r = canvas.getBoundingClientRect();
+        pinch = { d: m.d, z: v.z, mx: m.x - r.left, my: m.y - r.top, vx: v.x, vy: v.y };
+        canvas.classList.add('is-pinching');
+        window.dispatchEvent(new PointerEvent('pointerup', { pointerId: -1 }));
+      }
+    }, true);
+    const touchMove = (e) => {
+      if (!touches.has(e.pointerId)) return;
+      touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (!pinch || touches.size < 2) return;
+      const m = mid(), r = canvas.getBoundingClientRect();
+      const nz = u.clamp(pinch.z * (m.d / pinch.d), 0.3, 2);
+      v.x = pinch.mx - ((pinch.mx - pinch.vx) * nz) / pinch.z + (m.x - r.left - pinch.mx);
+      v.y = pinch.my - ((pinch.my - pinch.vy) * nz) / pinch.z + (m.y - r.top - pinch.my);
+      v.z = nz;
+      applyView();
+    };
+    const touchEnd = (e) => {
+      if (!touches.delete(e.pointerId)) return;
+      if (touches.size < 2 && pinch) { pinch = null; canvas.classList.remove('is-pinching'); }
+    };
+    window.addEventListener('pointermove', touchMove);
+    window.addEventListener('pointerup', touchEnd);
+    window.addEventListener('pointercancel', touchEnd);
+    const unbind = new MutationObserver(() => {
+      if (!document.body.contains(canvas)) {
+        window.removeEventListener('pointermove', touchMove);
+        window.removeEventListener('pointerup', touchEnd);
+        window.removeEventListener('pointercancel', touchEnd);
+        unbind.disconnect();
+      }
+    });
+    unbind.observe(document.getElementById('main'), { childList: true });
+
     // рух полотна: тягни порожнє місце
     canvas.addEventListener('pointerdown', (e) => {
+      if (pinch) return;
       if (e.button !== 0 && e.button !== 1) return;
       if (e.target.closest('.scard, .lt-group, .zoom-ctl, button')) return;
       e.preventDefault();
       const x0 = e.clientX, y0 = e.clientY, vx = v.x, vy = v.y;
       canvas.classList.add('is-panning');
       const move = (m) => {
+        if (pinch) return;
         v.x = vx + m.clientX - x0;
         v.y = vy + m.clientY - y0;
         applyView();
@@ -352,6 +396,7 @@ window.LP = window.LP || {};
         const x0 = e.clientX, y0 = e.clientY;
         let moved = false;
         const move = (m) => {
+          if (pinch) return;
           if (!moved && Math.hypot(m.clientX - x0, m.clientY - y0) < 4) return;
           moved = true;
           card.classList.add('is-dragging');
@@ -366,7 +411,7 @@ window.LP = window.LP || {};
           window.removeEventListener('pointerup', up);
           card.classList.remove('is-dragging');
           if (moved) LP.save({ render: false });
-          else LP.openTaskForm(t);
+          else if (!pinch && !canvas.classList.contains('is-pinching')) LP.openTaskForm(t);
         };
         window.addEventListener('pointermove', move);
         window.addEventListener('pointerup', up);

@@ -145,10 +145,13 @@ window.LP = window.LP || {};
 
   // ---------------- Карта стосунків ----------------
   function mapHtml() {
-    const people = LP.data.people.map((p) => `
+    const quad = (p) => (p.y >= 0.5 ? (p.x >= 0.5 ? 'заряджають, часто' : 'заряджають, рідко') : (p.x >= 0.5 ? 'виснажують, часто' : 'виснажують, рідко'));
+    const legend = LP.data.people.length ? `<ol class="rel-legend">${LP.data.people.map((p, i) => `
+      <li><button type="button" class="rl-row" data-person-open="${p.id}"><span class="rl-num ${p.y < 0.5 && p.x < 0.5 ? 'is-bad' : ''}">${i + 1}</span><span class="rl-name">${u.esc(p.name)}</span><span class="rl-q mono">${quad(p)}${p.ok ? '' : ' · хочу змінити'}</span></button></li>`).join('')}</ol>` : '';
+    const people = LP.data.people.map((p, i) => `
       <button type="button" class="person ${p.ok ? '' : 'wants-change'}" data-person="${p.id}" style="left:${p.x * 100}%;top:${(1 - p.y) * 100}%"
         title="${u.esc(p.name)}${p.note ? ' — ' + u.esc(p.note) : ''}">
-        <span class="dot"></span><span class="pname">${u.esc(p.name)}</span>
+        <span class="dot"><b class="pnum">${i + 1}</b></span><span class="pname">${u.esc(p.name)}</span>
       </button>
       ${!p.ok && p.tx != null ? `<span class="arrow-handle" data-handle="${p.id}" style="left:${p.tx * 100}%;top:${(1 - p.ty) * 100}%" title="Куди хочу рухати стосунки з ${u.esc(p.name)} — перетягни"></span>` : ''}`).join('');
     return `
@@ -162,7 +165,7 @@ window.LP = window.LP || {};
         <span class="ax-label ax-left">РІДКО</span>
         <span class="ax-label ax-right">ЧАСТО</span>
         <div class="rel-area"><svg class="arrows" aria-hidden="true"></svg>${people}</div>
-      </div>`;
+      </div>${legend}`;
   }
 
   function drawArrows(root) {
@@ -202,7 +205,20 @@ window.LP = window.LP || {};
             }).join('')}
           </tr>`;
         }).join('')}</tbody>
-      </table></div>`;
+      </table></div>
+      <div class="support-cards">${LP.SUPPORT.map((k, i) => {
+        const row = LP.data.support[k.id] || {};
+        const hasPlus = people.some((p) => row[p.id] === '+' || row[p.id] === '±');
+        return `<div class="sc-card ${hasPlus ? '' : 'gap'}">
+          <div class="k-title"><span class="num">${String(i + 1).padStart(2, '0')}</span> ${k.title}</div>
+          <div class="k-q">${k.q}</div>
+          <div class="sc-chips">${people.map((p) => {
+            const v = row[p.id] || '';
+            return `<button type="button" class="sc-chip pm-${v === '+' ? 'plus' : v === '-' ? 'minus' : v === '±' ? 'both' : 'none'}" data-pm="${k.id}|${p.id}" aria-label="${u.esc(p.name)}: ${k.title}"><b>${sym[v] || '·'}</b>${u.esc(p.name)}</button>`;
+          }).join('')}</div>
+        </div>`;
+      }).join('')}
+      <p class="hint">Тап по імені: + підтримує → − ні → ± буває по-різному → порожньо.</p></div>`;
   }
 
   function render(root) {
@@ -326,6 +342,7 @@ window.LP = window.LP || {};
       dragPoint(el, (x, y) => Object.assign(p, { tx: x, ty: y }));
     });
     root.querySelector('[data-add-person]').addEventListener('click', () => LP.openPersonForm({}));
+    root.querySelectorAll('[data-person-open]').forEach((b) => b.addEventListener('click', () => LP.openPersonForm(LP.person(b.dataset.personOpen))));
 
     root.querySelectorAll('[data-pm]').forEach((b) =>
       b.addEventListener('click', () => {

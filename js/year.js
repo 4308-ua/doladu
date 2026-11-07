@@ -92,6 +92,9 @@ window.LP = window.LP || {};
 
   let justDragged = 0;
   function render(root) {
+    const per = LP.view.yearPeriod && LP.lifeMark(LP.view.yearPeriod);
+    if (per && per.end) return renderPeriod(root, per);
+    LP.view.yearPeriod = null;
     const L = life();
     const off = LP.view.yearOffset || 0;
     const { from, to, age } = range(off);
@@ -239,7 +242,7 @@ window.LP = window.LP || {};
             </div>` : ''}
         </div>
         </div>
-        <p class="hint yr-legend">${mob ? 'Гортай лінію вбік. Тап по лінії — позначка, ще один тап — період. Тап по тегу — змінити.' : 'Клік по лінії — позначка, ще один клік — період (або протягни). Теги тягаються, дуга — за підпис чи кінці. Клік по тегу — змінити.'}</p>
+        <p class="hint yr-legend">${mob ? 'Гортай лінію вбік. Тап по лінії — позначка, ще один тап — період. Тап по періоду — розпланувати його по днях.' : 'Клік по лінії — позначка, ще один клік — період (або протягни). Теги тягаються, дуга — за підпис чи кінці. Клік по періоду — розпланувати його по днях.'}</p>
         <div class="yr-cols">
           <div class="yr-col">
             <div class="side-head"><span class="label">НАЙБЛИЖЧЕ</span><span class="mono muted">120 ДН.</span></div>
@@ -439,7 +442,11 @@ window.LP = window.LP || {};
         return LP.render();
       }
       const mk = t.closest('[data-mark]');
-      if (mk) return openMarkForm(LP.lifeMark(mk.dataset.mark));
+      if (mk) {
+        const m = LP.lifeMark(mk.dataset.mark);
+        if (m && m.end) { LP.view.yearPeriod = m.id; window.scrollTo(0, 0); return LP.render(); }
+        return openMarkForm(m);
+      }
       const di = t.closest('[data-date-id]');
       if (di) return openDateForm(L.dates.find((d) => d.id === di.dataset.dateId));
       if (t.closest('[data-add-date]')) return openDateForm(null);
@@ -545,5 +552,130 @@ window.LP = window.LP || {};
   });
 
   LP.views = LP.views || {};
+  // ================= Період: розпланувати по днях =================
+  // mark.plan = { days: { 'YYYY-MM-DD': [{ id, time, text, done, eventId }] }, list: [{ id, text, done }], notes }
+  const planOf = (m) => (m.plan = m.plan && typeof m.plan === 'object' ? m.plan : { days: {}, list: [], notes: '' }, m.plan.days = m.plan.days || {}, m.plan.list = m.plan.list || [], m.plan);
+  const parseTime = (s) => {
+    const mt = String(s).trim().match(/^(\d{1,2})[:.](\d{2})\s*(.*)$/);
+    if (!mt || +mt[1] > 23 || +mt[2] > 59) return { time: null, text: String(s).trim() };
+    return { time: +mt[1] * 60 + +mt[2], text: mt[3].trim() };
+  };
+  function renderPeriod(root, m) {
+    const plan = planOf(m);
+    const n = days(m.start, m.end) + 1;
+    const today = u.today();
+    const dayList = [];
+    for (let i = 0; i < n; i++) dayList.push(u.addDays(m.start, i));
+    const timed = dayList.reduce((k, d) => k + (plan.days[d] || []).filter((x) => x.time != null && !x.eventId).length, 0);
+    const itemRow = (d, it) => `
+      <li class="pp-item ${it.done ? 'is-done' : ''}" data-item="${it.id}" data-day="${d}">
+        <button type="button" class="pp-check" data-pp="toggle" aria-label="${it.done ? 'Зняти' : 'Позначити'}"></button>
+        <input class="pp-time mono" value="${it.time != null ? u.fmtTime(it.time) : ''}" placeholder="—:—" inputmode="numeric" maxlength="5" aria-label="Час">
+        <input class="pp-text" value="${u.esc(it.text)}" aria-label="Що">
+        ${it.eventId && LP.event(it.eventId) ? '<span class="pp-sent" title="Уже в розкладі на «Тижні»" aria-label="Уже в розкладі">📅</span>' : ''}
+        <button type="button" class="icon-btn small" data-pp="del" aria-label="Прибрати">✕</button>
+      </li>`;
+    root.innerHTML = `
+      <section class="period">
+        <div class="pp-head">
+          <button type="button" class="btn btn-sm" data-pp="back">← РІК</button>
+          <div class="pp-title">
+            <h2>${u.esc(m.title)}</h2>
+            <span class="mono">${u.fmtDate(m.start).toUpperCase()} — ${u.fmtDate(m.end).toUpperCase()} · ${n} ${n % 10 === 1 && n % 100 !== 11 ? 'ДЕНЬ' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'ДНІ' : 'ДНІВ'}${today >= m.start && today <= m.end ? ' · ЗАРАЗ ДЕНЬ ' + (days(m.start, today) + 1) : today < m.start ? ' · ЧЕРЕЗ ' + days(today, m.start) + ' ДН.' : ''}</span>
+          </div>
+          <span class="yr-spacer"></span>
+          <button type="button" class="btn btn-sm" data-pp="edit">ЗМІНИТИ</button>
+          <button type="button" class="btn btn-sm btn-primary" data-pp="tosched" ${timed ? '' : 'disabled'} title="Пункти з часом стануть справами на «Тижні»">У РОЗКЛАД${timed ? ' · ' + timed : ''}</button>
+        </div>
+        ${m.note ? `<p class="pp-note">${u.esc(m.note)}</p>` : ''}
+        <div class="pp-grid">
+          <div class="pp-days">${dayList.map((d, i) => {
+            const items = (plan.days[d] || []).slice().sort((a, b) => (a.time ?? 9999) - (b.time ?? 9999));
+            return `<div class="pp-day ${d === today ? 'is-today' : ''} ${d < today ? 'is-past' : ''}" data-day="${d}">
+              <div class="pp-dh"><b>${u.DAYS_SHORT[u.weekday(d)].toUpperCase()} ${u.fmtDay(d).toUpperCase()}</b><span class="mono muted">ДЕНЬ ${i + 1}</span></div>
+              <ul class="pp-items">${items.map((it) => itemRow(d, it)).join('')}</ul>
+              <input class="pp-add" data-day="${d}" placeholder="+ додати (10:00 музей)" aria-label="Додати пункт на ${u.fmtDay(d)}">
+            </div>`;
+          }).join('')}</div>
+          <aside class="pp-side">
+            <div class="pp-box">
+              <div class="label">СПИСОК</div>
+              <p class="hint">Що взяти, купити, забронювати.</p>
+              <ul class="pp-items">${plan.list.map((it) => `
+                <li class="pp-item ${it.done ? 'is-done' : ''}" data-litem="${it.id}">
+                  <button type="button" class="pp-check" data-pp="ltoggle" aria-label="Позначити"></button>
+                  <input class="pp-text" value="${u.esc(it.text)}" aria-label="Пункт">
+                  <button type="button" class="icon-btn small" data-pp="ldel" aria-label="Прибрати">✕</button>
+                </li>`).join('')}</ul>
+              <input class="pp-add" data-list="1" placeholder="+ додати пункт">
+              ${plan.list.length ? `<p class="mono muted pp-count">${plan.list.filter((x) => x.done).length} / ${plan.list.length}</p>` : ''}
+            </div>
+            <div class="pp-box">
+              <div class="label">НОТАТКИ</div>
+              <textarea class="pp-notes" rows="8" placeholder="Адреси, бронювання, ідеї…">${u.esc(plan.notes || '')}</textarea>
+            </div>
+          </aside>
+        </div>
+      </section>`;
+
+    const sec = root.querySelector('.period');
+    const save = () => LP.save({ render: false });
+    const findItem = (li) => (plan.days[li.dataset.day] || []).find((x) => x.id === li.dataset.item);
+    const refocus = (sel) => { LP.render(); const el = document.querySelector(sel); if (el) el.focus(); };
+    sec.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-pp]');
+      if (!b) return;
+      const a = b.dataset.pp;
+      if (a === 'back') { LP.view.yearPeriod = null; return LP.render(); }
+      if (a === 'edit') return openMarkForm(m);
+      if (a === 'tosched') {
+        let k = 0;
+        dayList.forEach((d) => (plan.days[d] || []).forEach((it) => {
+          if (it.time == null || (it.eventId && LP.event(it.eventId))) return;
+          const ev = LP.addEvent({ title: it.text || m.title, date: d, start: it.time, end: Math.min(24 * 60, it.time + 60), mood: 'good', note: 'З плану «' + m.title + '»' });
+          it.eventId = ev.id; k++;
+        }));
+        LP.save();
+        if (LP.toast) LP.toast(`У РОЗКЛАДІ: ${k} · ЧАС І ТРИВАЛІСТЬ — НА «ТИЖНІ»`);
+        return;
+      }
+      const li = b.closest('.pp-item');
+      if (a === 'toggle') { const it = findItem(li); it.done = !it.done; li.classList.toggle('is-done', it.done); return save(); }
+      if (a === 'del') { plan.days[li.dataset.day] = plan.days[li.dataset.day].filter((x) => x.id !== li.dataset.item); return LP.save(); }
+      if (a === 'ltoggle') { const it = plan.list.find((x) => x.id === li.dataset.litem); it.done = !it.done; return LP.save(); }
+      if (a === 'ldel') { plan.list = plan.list.filter((x) => x.id !== li.dataset.litem); return LP.save(); }
+    });
+    sec.addEventListener('change', (e) => {
+      const li = e.target.closest('.pp-item');
+      if (!li) return;
+      if (li.dataset.litem) { plan.list.find((x) => x.id === li.dataset.litem).text = e.target.value.trim(); return save(); }
+      const it = findItem(li);
+      if (e.target.classList.contains('pp-text')) it.text = e.target.value.trim();
+      if (e.target.classList.contains('pp-time')) {
+        const p = parseTime(e.target.value + ' x');
+        it.time = e.target.value.trim() ? p.time : null;
+        e.target.value = it.time != null ? u.fmtTime(it.time) : '';
+        return LP.save();
+      }
+      save();
+    });
+    sec.querySelectorAll('.pp-add').forEach((inp) => inp.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' || !inp.value.trim()) return;
+      e.preventDefault();
+      if (inp.dataset.list) {
+        plan.list.push({ id: u.uid(), text: inp.value.trim(), done: false });
+        save();
+        return refocus('.pp-add[data-list]');
+      }
+      const d = inp.dataset.day;
+      const { time, text } = parseTime(inp.value);
+      (plan.days[d] = plan.days[d] || []).push({ id: u.uid(), time, text: text || inp.value.trim(), done: false });
+      save();
+      refocus(`.pp-add[data-day="${d}"]`);
+    }));
+    let nt = null;
+    sec.querySelector('.pp-notes').addEventListener('input', (e) => { clearTimeout(nt); nt = setTimeout(() => { plan.notes = e.target.value; save(); }, 500); });
+  }
+
   LP.views.year = { render };
 })(window.LP);

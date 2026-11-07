@@ -97,7 +97,10 @@ window.LP = window.LP || {};
   };
   function renderNow() {
     applyAccent();
-    document.body.classList.toggle('no-grain', LP.data.settings.grain === false);
+    const soft = LP.data.settings.theme === 'soft';
+    document.documentElement.classList.toggle('theme-soft', soft);
+    try { localStorage.setItem('life-planner.theme', soft ? 'soft' : 'editorial'); } catch (e) {}
+    document.body.classList.toggle('no-grain', LP.data.settings.grain === false || soft);
     if (LP.view.tab === 'habits') LP.view.tab = 'stats';
     const tab = LP.view.tab;
     document.querySelectorAll('.mast-nav [data-tab]').forEach((b) => b.classList.toggle('is-active', b.dataset.tab === tab));
@@ -225,6 +228,13 @@ window.LP = window.LP || {};
         </div>
         <div class="field"><span>Основний колір</span><div class="accent-row">${Object.entries(LP.ACCENTS).map(([k, a]) =>
           `<label class="accent-opt"><input type="radio" name="accent" value="${k}" ${k === (s.accent || 'red') ? 'checked' : ''}><span><i style="background:${a.c}"></i>${a.name}</span></label>`).join('')}</div></div>
+        <div class="field"><span>Оформлення</span>
+          <div class="seg seg-sm theme-seg">
+            <label><input type="radio" name="theme" value="editorial" ${s.theme !== 'soft' ? 'checked' : ''}><span>Редакційне</span></label>
+            <label><input type="radio" name="theme" value="soft" ${s.theme === 'soft' ? 'checked' : ''}><span>Спокійне — для довгого читання</span></label>
+          </div>
+          <p class="hint">«Спокійне»: шрифт Atkinson Hyperlegible, заокруглені кути, мʼякший контраст без зерна, більші кнопки й рядки.</p>
+        </div>
         <label class="check"><input type="checkbox" name="grain" ${s.grain !== false ? 'checked' : ''}> Зернистість — плівкове зерно поверх усього</label>
         <label class="check"><input type="checkbox" name="orderWarnings" ${s.orderWarnings !== false ? 'checked' : ''}> Попереджати про важкі задачі підряд</label>
         <label class="check"><input type="checkbox" name="fitDay" ${s.fitDay !== false ? 'checked' : ''}> Весь день на екрані без прокрутки (масштаб підлаштовується під вікно)</label>
@@ -258,6 +268,7 @@ window.LP = window.LP || {};
         s.dayEnd = parseInt(form.dayEnd.value, 10);
         s.fitDay = form.fitDay.checked;
         s.grain = form.grain.checked;
+        s.theme = form.querySelector('input[name=theme]:checked').value;
         s.orderWarnings = form.orderWarnings.checked;
         s.accent = form.querySelector('input[name=accent]:checked').value;
         s.tgChat = form.tgChat.value.trim();

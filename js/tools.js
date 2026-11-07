@@ -121,7 +121,8 @@ window.LP = window.LP || {};
     if (!b) return;
     const s = current();
     b.classList.toggle('is-on', radio.playing);
-    b.textContent = radio.playing && s ? `♪ ${s.name.toUpperCase()}` : '♪ РАДІО';
+    b.title = radio.playing && s ? `Радіо: ${s.name}` : 'Радіо';
+    b.setAttribute('aria-label', b.title);
   }
   function play(id) {
     const s = all().find((x) => x.id === id);
