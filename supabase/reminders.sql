@@ -60,7 +60,8 @@ begin
   select token into tok from bot_config where id = 1;
   if tok is null or tok like 'ВСТАВ%' then return; end if;
 
-  for r in select user_id, data from planner loop
+  -- нова версія планера шифрує дані; для нагадувань вона окремо кладе розклад у data->'tg'
+  for r in select user_id, coalesce(data->'tg', data) as data from planner loop
     chat := nullif(trim(r.data->'settings'->>'tgChat'), '');
     continue when chat is null;
     lead := coalesce((r.data->'settings'->>'remindBefore')::int, 10);

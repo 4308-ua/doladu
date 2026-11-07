@@ -1,0 +1,16 @@
+# Безкоштовний проєкт Supabase засинає після тижня без запитів.
+# Раз на 3 дні GitHub сам «стукає» в базу — і вона не засинає.
+name: supabase-keepalive
+on:
+  schedule:
+    - cron: '17 6 */3 * *'
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase
+        run: |
+          curl -sS -o /dev/null -w "%{http_code}\n" \
+            "https://ngxtrzjdpqmozhjeqgqw.supabase.co/rest/v1/planner?select=user_id&limit=1" \
+            -H "apikey: sb_publishable_-gbCnhm5ctROcfFnyURH1g_8muJWeOy"

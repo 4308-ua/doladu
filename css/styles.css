@@ -2227,3 +2227,52 @@ input[type="password"] { width: 100%; height: 38px; padding: 0 10px; border: 2px
 .goal-bar-row .gt-on { color: var(--ink); font-weight: 600; }
 .goal-loose li.is-plan .gl-title { font-weight: 500; color: var(--gray-2); }
 .goal-loose .hint { margin: 6px 0 0; font-size: 11px; }
+
+/* ===== акаунт: екран входу замість планера ===== */
+html.auth-pending body > *:not(.auth-screen) { visibility: hidden; }
+body.is-locked { overflow: hidden; }
+body.is-locked > *:not(.auth-screen):not(.grain) { display: none !important; }
+.auth-screen {
+  position: fixed; inset: 0; z-index: 300; overflow-y: auto; display: flex; align-items: center; justify-content: center;
+  padding: calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom)); background: var(--desk, #efeeea);
+  animation: fade-in 220ms var(--ease, ease) both;
+}
+.auth-screen.is-leaving { animation: fade-out 200ms var(--ease, ease) both; }
+.auth-card { width: min(440px, 100%); }
+.auth-brand { display: flex; align-items: center; gap: 10px; font-weight: 900; font-stretch: 85%; font-size: 15px; letter-spacing: 0.04em; margin-bottom: 18px; }
+.auth-brand svg { width: 22px; height: 22px; }
+.auth-form { background: var(--sheet, #fff); border: 2px solid var(--ink); padding: 26px 26px 22px; box-shadow: var(--lay-3, 0 20px 40px -20px rgba(0,0,0,.4)); }
+.auth-form h1 { margin: 0 0 8px; font-size: 40px; line-height: 1; font-weight: 900; font-stretch: 80%; text-transform: uppercase; letter-spacing: -0.01em; }
+.auth-lead { margin: 0 0 18px; font-size: 14px; line-height: 1.45; color: #333; }
+.auth-form .field { margin-bottom: 12px; }
+.auth-form .field input { width: 100%; height: 42px; font-size: 16px; }
+.auth-note { min-height: 18px; margin: 4px 0 10px; font-size: 13px; color: var(--gray-2); }
+.auth-note.warn { color: var(--red); }
+.auth-btns { display: flex; flex-direction: column; gap: 8px; }
+.auth-btns .btn { height: 44px; width: 100%; justify-content: center; }
+.auth-links { margin-top: 14px; text-align: center; }
+.auth-links .link-btn { font-size: 13px; }
+.auth-links .danger { color: var(--red); }
+.code-box { padding: 14px 12px; border: 2px dashed var(--ink); background: #fbfbfa; font-size: 17px; font-weight: 700; letter-spacing: 0.06em; text-align: center; word-break: break-all; user-select: all; }
+.code-acts { margin: 8px 0 12px; display: flex; justify-content: center; }
+.acc-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+
+/* ===== тур ===== */
+.tour { position: fixed; inset: 0; z-index: 250; pointer-events: none; background: rgba(20, 20, 18, 0.18); animation: fade-in 200ms var(--ease, ease) both; }
+.tour.is-leaving { animation: fade-out 180ms var(--ease, ease) both; }
+.tour-card {
+  pointer-events: auto; position: absolute; left: 50%; bottom: 32px; transform: translateX(-50%); width: min(460px, calc(100vw - 32px));
+  padding: 18px 20px 16px; background: var(--sheet, #fff); border: 2px solid var(--ink); box-shadow: var(--lay-3, 0 20px 40px -20px rgba(0,0,0,.4));
+  animation: rise-in 240ms var(--ease, ease) both;
+}
+.tour-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.tour-n { font-size: 10px; color: var(--gray-2); letter-spacing: 0.08em; }
+.tour-card h2 { margin: 0 0 6px; font-size: 28px; line-height: 1.05; font-weight: 900; font-stretch: 82%; text-transform: uppercase; }
+.tour-card p { margin: 0; font-size: 14.5px; line-height: 1.45; }
+.tour-dots { display: flex; gap: 5px; margin: 14px 0 12px; }
+.tour-dots i { width: 7px; height: 7px; border-radius: 50%; background: #d4d4d0; }
+.tour-dots i.on { background: var(--red); }
+.tour-btns { display: flex; justify-content: flex-end; gap: 8px; }
+.mast-nav button.tour-hl { color: var(--red) !important; animation: tour-pulse 1.4s ease-in-out infinite; }
+@keyframes tour-pulse { 50% { opacity: 0.45; } }
+@media (max-width: 760px) { .tour-card { bottom: calc(76px + env(safe-area-inset-bottom)); } }

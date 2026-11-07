@@ -234,12 +234,13 @@ window.LP = window.LP || {};
             <label class="field"><span>Нагадувати</span><select name="remindBefore">${[[-1, 'не нагадувати'], [0, 'на початку'], [5, 'за 5 хв'], [10, 'за 10 хв'], [15, 'за 15 хв'], [30, 'за 30 хв'], [60, 'за годину']].map(([v, t]) => `<option value="${v}" ${v === s.remindBefore ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
             <label class="field"><span>План на день</span><select name="morningAt">${[[-1, 'не надсилати']].concat([6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10].map((h) => [h * 60, LP.u.fmtTime(h * 60)])).map(([v, t]) => `<option value="${v}" ${v === s.morningAt ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
           </div>
-          <p class="hint">ID дізнаєшся в Telegram у боті @userinfobot (рядок «Id»). Потім напиши своєму боту /start — інакше він не зможе тобі писати. Працює, коли ввімкнено вхід (синхронізація).</p>
+          <p class="hint">ID дізнаєшся в Telegram у боті @userinfobot (рядок «Id»). Потім напиши своєму боту /start — інакше він не зможе тобі писати. Щоб бот знав, коли писати, у хмару йде розклад на 3 тижні вперед (назви й час справ) — решта даних лишається зашифрованою. Без ID нічого не передається.</p>
         </div>
         <div class="storage-meter"><span class="label">ДАНІ</span>
-          <p class="hint">Зберігаються в цьому браузері, а після входу — ще й у хмарі (синхронізуються між пристроями). Зайнято ${(JSON.stringify(LP.data).length * 2 / 1024).toFixed(0)} КБ з приблизно 5 000 КБ. Найбільше місця беруть картинки цілей.</p></div>
+          <p class="hint">Зберігаються в цьому браузері й зашифрованими — у хмарі (синхронізуються між пристроями). Зайнято ${(JSON.stringify(LP.data).length * 2 / 1024).toFixed(0)} КБ з приблизно 5 000 КБ. Найбільше місця беруть картинки цілей.</p></div>
         <p class="hint">Ctrl+Z — відкотити останню дію, Ctrl+Y — повернути. Історія дій живе, поки відкрита сторінка.</p>
-        <p class="hint">Регулярно роби «Експорт» — це твоя резервна копія у файл.</p>`,
+        <p class="hint">Регулярно роби «Експорт» — це твоя резервна копія у файл.</p>
+        <p><button type="button" class="link-btn" data-tour-again>ПОКАЗАТИ ТУР ЩЕ РАЗ →</button></p>`,
       extra: [{
         text: 'Стерти всі дані',
         className: 'btn-danger',
@@ -249,6 +250,7 @@ window.LP = window.LP || {};
         },
       }],
       onOpen: (form) => {
+        form.querySelector('[data-tour-again]').addEventListener('click', () => { LP.closeModal(); setTimeout(LP.startTour, 200); });
       },
       onSubmit: (form) => {
 
