@@ -244,6 +244,15 @@ window.LP = window.LP || {};
             <label class="field"><span>Нагадувати</span><select name="remindBefore">${[[-1, 'не нагадувати'], [0, 'на початку'], [5, 'за 5 хв'], [10, 'за 10 хв'], [15, 'за 15 хв'], [30, 'за 30 хв'], [60, 'за годину']].map(([v, t]) => `<option value="${v}" ${v === s.remindBefore ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
             <label class="field"><span>План на день</span><select name="morningAt">${[[-1, 'не надсилати']].concat([6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10].map((h) => [h * 60, LP.u.fmtTime(h * 60)])).map(([v, t]) => `<option value="${v}" ${v === s.morningAt ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
           </div>
+          <div class="field city-field"><span>Місто — для погоди в плані дня</span>
+            <div class="city-row">
+              <input type="text" name="cityQ" value="${LP.u.esc(s.city ? s.city.name : '')}" placeholder="Київ, Львів, Berlin…" autocomplete="off">
+              <button type="button" class="btn btn-sm" data-city-find>ЗНАЙТИ</button>
+              <button type="button" class="btn btn-sm" data-city-geo title="Визначити за геолокацією">📍</button>
+            </div>
+            <div class="city-results"></div>
+            <p class="hint city-chosen">${s.city ? 'Обрано: ' + LP.u.esc(s.city.label || s.city.name) : 'Не обрано — план дня прийде без погоди.'}</p>
+          </div>
           <p class="hint">ID дізнаєшся в Telegram у боті @userinfobot (рядок «Id»). Потім напиши своєму боту /start — інакше він не зможе тобі писати. Щоб бот знав, коли писати, у хмару йде розклад на 3 тижні вперед (назви й час справ) — решта даних лишається зашифрованою. Без ID нічого не передається.</p>
         </div>
         <div class="storage-meter"><span class="label">ДАНІ</span>
@@ -260,6 +269,34 @@ window.LP = window.LP || {};
         },
       }],
       onOpen: (form) => {
+        // місто: пошук через Open-Meteo (без ключа) або геолокація
+        let city = s.city || null;
+        const chosen = form.querySelector('.city-chosen');
+        const results = form.querySelector('.city-results');
+        const pick = (c) => { city = c; form.cityQ.value = c ? c.name : ''; chosen.textContent = c ? 'Обрано: ' + (c.label || c.name) : 'Не обрано — план дня прийде без погоди.'; results.innerHTML = ''; };
+        form._city = () => (form.cityQ.value.trim() ? city : null);
+        const find = async () => {
+          const q = form.cityQ.value.trim();
+          if (q.length < 2) return;
+          results.innerHTML = '<p class="hint">Шукаю…</p>';
+          try {
+            const r = await fetch('https://geocoding-api.open-meteo.com/v1/search?count=5&language=uk&format=json&name=' + encodeURIComponent(q)).then((x) => x.json());
+            const list = (r.results || []).map((x) => ({ name: x.name, label: [x.name, x.admin1 !== x.name ? x.admin1 : null, x.country].filter(Boolean).join(', '), lat: +x.latitude.toFixed(3), lon: +x.longitude.toFixed(3) }));
+            results.innerHTML = list.length ? list.map((c, i) => `<button type="button" class="city-opt" data-i="${i}">${LP.u.esc(c.label)}</button>`).join('') : '<p class="hint">Нічого не знайшлося — спробуй інакше (можна латиницею).</p>';
+            results.querySelectorAll('.city-opt').forEach((b) => b.addEventListener('click', () => pick(list[+b.dataset.i])));
+          } catch (e) { results.innerHTML = '<p class="hint warn">Не вдалося знайти — перевір інтернет.</p>'; }
+        };
+        form.querySelector('[data-city-find]').addEventListener('click', find);
+        form.cityQ.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); find(); } });
+        form.querySelector('[data-city-geo]').addEventListener('click', () => {
+          if (!navigator.geolocation) return (results.innerHTML = '<p class="hint warn">Цей браузер не дає геолокацію.</p>');
+          results.innerHTML = '<p class="hint">Визначаю…</p>';
+          navigator.geolocation.getCurrentPosition(
+            (p) => pick({ name: 'Моє місце', label: `Моє місце (${p.coords.latitude.toFixed(2)}, ${p.coords.longitude.toFixed(2)})`, lat: +p.coords.latitude.toFixed(3), lon: +p.coords.longitude.toFixed(3) }),
+            () => { results.innerHTML = '<p class="hint warn">Доступ до геолокації не дано — введи місто вручну.</p>'; },
+            { timeout: 10000 }
+          );
+        });
         form.querySelector('[data-tour-again]').addEventListener('click', () => { LP.closeModal(); setTimeout(LP.startTour, 200); });
       },
       onSubmit: (form) => {
@@ -274,6 +311,7 @@ window.LP = window.LP || {};
         s.tgChat = form.tgChat.value.trim();
         s.remindBefore = parseInt(form.remindBefore.value, 10);
         s.morningAt = parseInt(form.morningAt.value, 10);
+        s.city = form._city ? form._city() : s.city;
         LP.view.calScroll = null;
         LP.save();
       },

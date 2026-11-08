@@ -175,6 +175,7 @@ window.LP = window.LP || {};
       remindBefore: d.settings && Number.isFinite(d.settings.remindBefore) ? d.settings.remindBefore : 10,
       morningAt: d.settings && Number.isFinite(d.settings.morningAt) ? d.settings.morningAt : 8 * 60,
       tourDone: !!(d.settings && d.settings.tourDone),
+      city: d.settings && d.settings.city && Number.isFinite(d.settings.city.lat) ? d.settings.city : null,
       theme: d.settings && d.settings.theme === 'soft' ? 'soft' : 'editorial',
       mealsCut: !(d.settings && d.settings.mealsCut === false),
       showSleep: !(d.settings && d.settings.showSleep === false),

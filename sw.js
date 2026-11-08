@@ -1,5 +1,5 @@
 // Робота без інтернету: спершу мережа (щоб оновлення приходили одразу), без мережі — збережена копія.
-const CACHE = 'na-sviy-lad-v8';
+const CACHE = 'na-sviy-lad-v9';
 const CORE = [
   './', './index.html', './css/styles.css', './manifest.webmanifest',
   './icons/apple-touch-icon.png', './icons/icon-192.png', './icons/icon-512.png',

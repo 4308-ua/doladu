@@ -127,7 +127,7 @@ window.LP = window.LP || {};
     const events = LP.occurrences(today, LP.u.addDays(today, 21)).map((o) => ({
       id: o.ev.id, title: o.ev.title, date: o.date, start: o.ev.start, end: o.ev.end, doneDates: o.done ? [o.date] : [],
     }));
-    return { settings: { tgChat: s.tgChat, remindBefore: s.remindBefore, morningAt: s.morningAt }, events };
+    return { settings: { tgChat: s.tgChat, remindBefore: s.remindBefore, morningAt: s.morningAt, city: s.city ? { name: s.city.name, lat: s.city.lat, lon: s.city.lon } : null }, events };
   }
   async function decodeRow(row) {
     if (!row) return null;
