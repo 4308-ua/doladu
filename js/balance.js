@@ -7,6 +7,9 @@ window.LP = window.LP || {};
   const W = 440, C = W / 2, R = 170;
 
   // ---------------- Колесо ----------------
+  // Рівень, до якого прагнемо (не 10 — усе на максимумі не буває): за замовчуванням 7
+  const target = () => (Number.isFinite(LP.data.balance.target) ? LP.data.balance.target : 7);
+  const notesOf = (id) => ((LP.data.balance.notes = LP.data.balance.notes || {})[id] = LP.data.balance.notes[id] || { doing: '', change: '' });
   const pt = (a, r) => [C + r * Math.cos(a), C + r * Math.sin(a)];
   const f = (n) => n.toFixed(1);
   const wedge = (a0, a1, r) => {
@@ -34,8 +37,11 @@ window.LP = window.LP || {};
     for (let k = 1; k <= 10; k++) s += `<circle cx="${C}" cy="${C}" r="${(R * k) / 10}" class="w-ring ${k === 10 ? 'w-ring-out' : k % 5 === 0 ? 'w-ring-5' : ''}"/>`;
     areas.forEach((ar, i) => {
       const score = LP.areaScore(ar.id);
-      s += `<path d="${wedge(a(i) + 0.012, a(i + 1) - 0.012, (R * score) / 10)}" class="w-fill"><title>${u.esc(ar.name)}: ${score}/10</title></path>`;
+      s += `<path d="${wedge(a(i) + 0.012, a(i + 1) - 0.012, (R * score) / 10)}" class="w-fill ${score > 0 && score < target() - 1 ? 'is-low' : score > 0 && score < target() ? 'is-near' : ''}"><title>${u.esc(ar.name)}: ${score}/10</title></path>`;
     });
+    // лінія рівня
+    s += `<circle cx="${C}" cy="${C}" r="${(R * target()) / 10}" class="w-target"/>`;
+    s += `<text x="${C}" y="${C - (R * target()) / 10 - 6}" text-anchor="middle" class="w-target-label">РІВЕНЬ ${target()}</text>`;
     areas.forEach((ar, i) => {
       const [x, y] = pt(a(i), R);
       s += `<line x1="${C}" y1="${C}" x2="${f(x)}" y2="${f(y)}" class="w-spoke"/>`;
@@ -58,25 +64,40 @@ window.LP = window.LP || {};
       const score = LP.areaScore(ar.id);
       let cells = '';
       for (let k = 1; k <= 10; k++) cells += `<button type="button" class="sc ${k <= score ? 'on' : ''}" data-area="${ar.id}" data-score="${k}" aria-label="${u.esc(ar.name)}: ${k}"></button>`;
-      return `<div class="area-row"><span class="area-name">${u.esc(ar.name)}</span><span class="sc-row">${cells}</span><b class="area-val">${score}</b></div>`;
+      const nt = notesOf(ar.id);
+      const low = score > 0 && score < target();
+      const preview = (low ? nt.change || nt.doing : nt.doing || nt.change).split('\n')[0];
+      return `<div class="area-row ${low ? 'is-low' : ''}">
+        <button type="button" class="area-name area-open" data-area-open="${ar.id}" title="Що роблю / що змінити"><span>${u.esc(ar.name)}${nt.doing || nt.change ? ' <span class="area-has">✎</span>' : ''}</span>
+          ${preview ? `<small class="area-note">${low && nt.change ? '→ ' : ''}${u.esc(preview)}</small>` : ''}</button>
+        <span class="sc-row">${cells}</span><b class="area-val">${score}</b></div>`;
     }).join('');
   }
 
   function dipsHtml() {
     const rated = LP.data.balance.areas.filter((a) => LP.areaScore(a.id) > 0).sort((a, b) => LP.areaScore(a.id) - LP.areaScore(b.id));
     if (!rated.length) return '<p class="empty-note">Постав оцінки 1–10: клікни по колесу або по шкалі.</p>';
-    const avg = rated.reduce((s, a) => s + LP.areaScore(a.id), 0) / rated.length;
-    // Просадка — оцінка нижче 7. Показуємо 3 найнижчі; але все, що нижче 5, — завжди, скільки б їх не було.
-    const below7 = rated.filter((a) => LP.areaScore(a.id) < 7);
-    const below5 = below7.filter((a) => LP.areaScore(a.id) < 5);
-    const shown = below5.length > 3 ? below5 : below7.slice(0, 3);
+    const T = target();
+    const below = rated.filter((a) => LP.areaScore(a.id) < T);
+    const deep = rated.filter((a) => LP.areaScore(a.id) <= T - 3);
+    const vals = rated.map((a) => LP.areaScore(a.id));
+    const lo = Math.min(...vals), hi = Math.max(...vals);
+    const verdict = deep.length >= 3 ? `Просіли одразу ${deep.length} сфери — не тягни всі. Обери одну й почни з маленького кроку.`
+      : !below.length ? (hi - lo <= 2 ? 'Усе на рівні й рівно — так і тримай.' : 'Усе на рівні або вище. Не женися за десятками — краще тримати рівновагу.')
+      : below.length === 1 ? 'Одна сфера нижче рівня — на ній і фокус цього тижня.'
+      : 'Кілька сфер нижче рівня. Почни з найнижчої — або з тієї, де крок найлегший.';
     return `
-      <div class="mono">СЕРЕДНЯ ОЦІНКА ${avg.toFixed(1).replace('.', ',')}</div>
-      ${shown.length
-        ? `<ol class="dips">${shown.map((a) => `<li><span>${u.esc(a.name)}</span><b>${LP.areaScore(a.id)}</b></li>`).join('')}</ol>`
-        : '<p class="dips-none">Просадок немає — усі напрями від 7 і вище.</p>'}`;
+      <div class="lvl-row"><span class="mono">РІВЕНЬ, ДО ЯКОГО ПРАГНУ</span>
+        <span class="lvl-ctl"><button type="button" class="mini-btn" data-lvl="-1" aria-label="Нижче">−</button><b>${T}</b><button type="button" class="mini-btn" data-lvl="1" aria-label="Вище">+</button></span></div>
+      <p class="hint lvl-why">Не 10: усе на максимумі не буває — щось завжди просідає. Краще рівно на ${T}, ніж 10 в одній сфері й 3 в іншій.</p>
+      <div class="mono">СЕРЕДНЯ ${(vals.reduce((x, v) => x + v, 0) / vals.length).toFixed(1).replace('.', ',')} · РОЗКИД ${lo}–${hi} · НИЖЧЕ РІВНЯ ${below.length} З ${rated.length}</div>
+      <p class="lvl-verdict ${deep.length >= 3 ? 'warn' : ''}">${verdict}</p>
+      ${below.length ? `<ol class="dips">${below.map((a) => {
+        const nt = notesOf(a.id);
+        return `<li><button type="button" class="dip-open" data-area-open="${a.id}"><span>${u.esc(a.name)}</span><b>${LP.areaScore(a.id)}</b>
+          <small>${nt.change ? '→ ' + u.esc(nt.change.split('\n')[0]) : '+ що змінити, щоб підняти?'}</small></button></li>`;
+      }).join('')}</ol>` : ''}`;
   }
-
   // Історія: напрями × дати оцінок + міні-графік тенденції
   function spark(values, w = 96, h = 26) {
     const pts = values.map((v, i) => [values.length > 1 ? (i / (values.length - 1)) * (w - 6) + 3 : w / 2, h - 3 - (v / 10) * (h - 6)]);
@@ -238,7 +259,7 @@ window.LP = window.LP || {};
             <div class="wheel-wrap">${wheelSvg()}</div>
             <div>
               <div class="areas">${areaRows()}</div>
-              <div class="dips-box"><div class="label">ПРОСАДКИ</div>${dipsHtml()}</div>
+              <div class="dips-box"><div class="label">РІВНОВАГА</div>${dipsHtml()}</div>
             </div>
           </div>
           ${historyHtml()}
@@ -265,6 +286,40 @@ window.LP = window.LP || {};
     bind(root);
   }
 
+  // Напрям: що вже роблю (тримає оцінку) і що змінити / почати (підніме її)
+  function openAreaNotes(id) {
+    const ar = LP.data.balance.areas.find((a) => a.id === id);
+    if (!ar) return;
+    const nt = notesOf(id);
+    const score = LP.areaScore(id);
+    let cells = '';
+    for (let k = 1; k <= 10; k++) cells += `<button type="button" class="sc ${k <= score ? 'on' : ''} ${k === target() ? 'is-target' : ''}" data-s="${k}" aria-label="${k}"></button>`;
+    LP.modal({
+      title: ar.name,
+      submitText: 'Зберегти',
+      body: `
+        <div class="field"><span>Оцінка зараз · рівень ${target()}</span><div class="sc-row an-scale">${cells}<b class="an-val">${score || '—'}</b></div></div>
+        <label class="field"><span>Що я вже роблю — тримає цю сферу</span><textarea name="doing" rows="3" maxlength="600" placeholder="Бігаю двічі на тиждень, лягаю до 23:30…">${u.esc(nt.doing)}</textarea></label>
+        <label class="field"><span>Що змінити або почати — щоб підняти оцінку</span><textarea name="change" rows="3" maxlength="600" placeholder="Менше телефону перед сном, раз на тиждень дзвонити батькам…">${u.esc(nt.change)}</textarea></label>
+        <p class="hint">Пиши конкретно й маленькими кроками. Якщо крок можна запланувати — додай його справою на «Тиждень».</p>`,
+      onOpen: (form) => {
+        let v = score;
+        form.querySelectorAll('.an-scale .sc').forEach((b) => b.addEventListener('click', () => {
+          v = +b.dataset.s;
+          form.querySelectorAll('.an-scale .sc').forEach((x) => x.classList.toggle('on', +x.dataset.s <= v));
+          form.querySelector('.an-val').textContent = v;
+          form._v = v;
+        }));
+      },
+      onSubmit: (form) => {
+        nt.doing = form.doing.value.trim();
+        nt.change = form.change.value.trim();
+        if (form._v && form._v !== score) LP.setAreaScore(id, form._v);
+        else LP.save();
+      },
+    });
+  }
+
   function bind(root) {
     const svg = root.querySelector('.wheel');
     svg.addEventListener('click', (e) => {
@@ -282,6 +337,11 @@ window.LP = window.LP || {};
       LP.setAreaScore(areas[i].id, u.clamp(Math.ceil((dist / R) * 10), 1, 10));
     });
     root.querySelectorAll('.sc').forEach((b) => b.addEventListener('click', () => LP.setAreaScore(b.dataset.area, parseInt(b.dataset.score, 10))));
+    root.querySelectorAll('[data-area-open]').forEach((b) => b.addEventListener('click', () => openAreaNotes(b.dataset.areaOpen)));
+    root.querySelectorAll('[data-lvl]').forEach((b) => b.addEventListener('click', () => {
+      LP.data.balance.target = u.clamp(target() + Number(b.dataset.lvl), 4, 9);
+      LP.save();
+    }));
     root.querySelector('[data-areas]').addEventListener('click', openAreasForm);
     const cmp = root.querySelector('[data-compare]');
     if (cmp) cmp.addEventListener('change', () => {

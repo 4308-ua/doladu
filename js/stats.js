@@ -298,18 +298,21 @@ window.LP = window.LP || {};
         }).join('')
       : '<p class="empty-note">Цілей ще немає.</p>';
 
+    const wDays = Array.from({ length: 7 }, (_, i) => u.addDays(ws, i));
+    const moodVals = wDays.map((d) => LP.journal(d)).filter((j) => j && j.score).map((j) => j.score);
+    const moodN = moodVals.length, moodAvg = moodN ? moodVals.reduce((x, v) => x + v, 0) / moodN : 0;
+    const balT = Number.isFinite(LP.data.balance.target) ? LP.data.balance.target : 7;
+    const balLow = LP.data.balance.areas.filter((a) => { const v = LP.areaScore(a.id); return v > 0 && v < balT; }).length;
     root.innerHTML = `
       <div class="page">
         <div class="tiles">
-          ${tile('ЗРОБЛЕНО ЗА ТИЖДЕНЬ', `${s.done}`, `${u.fmtHours(s.minDone).toUpperCase()} СПРАВ`)}
+          ${tile('СТАН ЗА ТИЖДЕНЬ', moodAvg ? moodAvg.toFixed(1).replace('.', ',') : '—', moodAvg ? `СЕРЕДНЄ З ${moodN} ЗАПИС${moodN === 1 ? 'У' : 'ІВ'} «ЯК ТИ?»` : 'ЗАПИШИ «ЯК ТИ?» В ДЕНЬ')}
           ${tile('ЦІЛІ ТИЖНЯ', `${s.weekGoalsDone}/${s.weekGoals}`, s.weekGoals ? `${u.pct(s.weekGoalsDone, s.weekGoals)}% ДОСЯГНУТО` : 'НЕ ПОСТАВЛЕНО')}
           ${tile('ЗВИЧКИ', `${u.pct(s.habitDone, s.habitTarget)}%`, `${s.habitDone} З ${s.habitTarget} ВІДМІТОК`)}
-          ${tile('БЕКЛОГ', `${LP.backlog().length}`, 'ЗАДАЧ ЧЕКАЮТЬ НА ЧАС')}
+          ${tile('БАЛАНС', `${balLow}`, balLow ? `СФЕР${balLow === 1 ? 'А' : balLow < 5 ? 'И' : ''} НИЖЧЕ РІВНЯ ${balT}` : `УСЕ НА РІВНІ ${balT}+`)}
         </div>
         ${moodChart(ws)}
-        ${sleepChart(ws)}
-        <div class="chart-row">
-          ${doneBars(series, ws)}
+        <div class="chart-row chart-row-1">
           ${pctBars('ВИКОНАННЯ ЗВИЧОК ПО ТИЖНЯХ, %', habitRows, ws)}
         </div>
         ${LP.habitsSection.html()}
