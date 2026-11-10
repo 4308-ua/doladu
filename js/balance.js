@@ -30,7 +30,6 @@ window.LP = window.LP || {};
   function wheelSvg() {
     const areas = LP.data.balance.areas;
     const n = areas.length;
-    const prev = compareSnap();
     const step = (2 * Math.PI) / n;
     const a = (i) => -Math.PI / 2 + i * step;
     let s = '';
@@ -46,10 +45,6 @@ window.LP = window.LP || {};
       const [x, y] = pt(a(i), R);
       s += `<line x1="${C}" y1="${C}" x2="${f(x)}" y2="${f(y)}" class="w-spoke"/>`;
     });
-    if (prev) {
-      const pts = areas.map((ar, i) => pt(a(i) + step / 2, (R * (prev.scores[ar.id] || 0)) / 10).map(f).join(',')).join(' ');
-      s += `<polygon points="${pts}" class="w-prev"><title>Оцінка ${u.fmtDate(prev.date)}</title></polygon>`;
-    }
     areas.forEach((ar, i) => {
       const mid = a(i) + step / 2;
       const [x, y] = pt(mid, R + 22);
@@ -244,14 +239,11 @@ window.LP = window.LP || {};
 
   function render(root) {
     const snaps = LP.data.balance.snapshots;
-    const cmp = compareSnap();
     root.innerHTML = `
       <div class="page">
         <section>
           <div class="section-head">
             <h2>КОЛЕСО БАЛАНСУ</h2>
-            <span class="mono">ЗАЛИВКА — ЗАРАЗ${cmp ? ` · КОНТУР — ${snapLabel(cmp)}` : ''}</span>
-            ${pastSnaps().length ? `<label class="mono cmp">ПОРІВНЯТИ З <select data-compare>${pastSnaps().slice().reverse().map((s) => `<option value="${s.id}" ${cmp && s.id === cmp.id ? 'selected' : ''}>${snapLabel(s)}</option>`).join('')}</select></label>` : ''}
             <button type="button" class="btn" data-areas>НАПРЯМИ</button>
             <span class="mono muted snap-auto">${LP.data.balance.snapshots.some((x) => x.date === u.today()) ? 'ЗРІЗ ЗА СЬОГОДНІ ЗБЕРЕЖЕНО АВТОМАТИЧНО · ЗАВТРА ПОЧНЕТЬСЯ НОВИЙ' : 'ЗМІНИ ОЦІНКУ — І ЗРІЗ ЗА СЬОГОДНІ ЗБЕРЕЖЕТЬСЯ САМ'}</span>
           </div>
@@ -343,11 +335,6 @@ window.LP = window.LP || {};
       LP.save();
     }));
     root.querySelector('[data-areas]').addEventListener('click', openAreasForm);
-    const cmp = root.querySelector('[data-compare]');
-    if (cmp) cmp.addEventListener('change', () => {
-      LP.view.compareSnap = cmp.value;
-      LP.render();
-    });
     root.querySelector('[data-history]').addEventListener('click', () => {
       LP.view.historyOpen = !LP.view.historyOpen;
       LP.render();
