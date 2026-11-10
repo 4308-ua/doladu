@@ -18,7 +18,7 @@ window.LP = window.LP || {};
     if (LP.isMobile()) {
       const mh = (document.querySelector('.masthead') || {}).offsetHeight || 140;
       const nav = (document.querySelector('.mast-nav') || {}).offsetHeight || 60;
-      return u.clamp(Math.floor(((window.innerHeight - mh - nav - 112) / (dayEnd - dayStart)) * 4) / 4, 30, 70);
+      return u.clamp(Math.floor(((window.innerHeight - mh - nav - 112) / (dayEnd - dayStart)) * 4) / 4, 52, 80);
     }
     if (LP.data.settings.fitDay === false) return 50;
     const avail = root.clientHeight - 40 - (withHint ? 56 : 0) - 2;
@@ -38,8 +38,11 @@ window.LP = window.LP || {};
       return `M${f(x0 + r)},${f(y0)} H${f(x1 - r)} Q${f(x1)},${f(y0)} ${f(x1)},${f(y0 + r)} V${f(y1 - r)} Q${f(x1)},${f(y1)} ${f(x1 - r)},${f(y1)} H${f(x0 + r)} Q${f(x0)},${f(y1)} ${f(x0)},${f(y1 - r)} V${f(y0 + r)} Q${f(x0)},${f(y0)} ${f(x0 + r)},${f(y0)} Z`;
     }
     if (mood !== 'mid' && mood !== 'bad') return `M1,1 H${f(w - 1)} V${f(h - 1)} H1 Z`;
-    const A = mood === 'bad' ? Math.min(4, h / 5) : Math.min(2.2, h / 9);
-    const x0 = A + 1, y0 = A + 1, x1 = w - A - 1, y1 = h - A - 1;
+    // коротка справа: зубці/хвилі лише по боках, верх і низ майже рівні — щоб не зʼїдати текст
+    const short = h < 40;
+    const A = mood === 'bad' ? (short ? 3.2 : Math.min(4, h / 5)) : (short ? 2 : Math.min(2.2, h / 9));
+    const Ay = short ? Math.min(A, 0.6) : A;
+    const x0 = A + 1, y0 = Ay + 1, x1 = w - A - 1, y1 = h - Ay - 1;
     // обхід чотирьох сторін; зміщення вздовж зовнішньої нормалі
     const edges = [
       [x0, y0, x1, y0, 0, -1], [x1, y0, x1, y1, 1, 0], [x1, y1, x0, y1, 0, 1], [x0, y1, x0, y0, -1, 0],
@@ -47,8 +50,10 @@ window.LP = window.LP || {};
     let d = '';
     edges.forEach(([ax, ay, bx, by, nx, ny], ei) => {
       const len = Math.hypot(bx - ax, by - ay);
+      const horiz = ny !== 0;
+      if (short && horiz) { d += (d ? 'L' : 'M') + f(ax) + ',' + f(ay); return; }
       if (mood === 'bad') {
-        const n = Math.max(1, Math.round(len / 8));
+        const n = Math.max(1, Math.round(len / (short ? 6 : 8)));
         for (let i = 0; i < n * 2; i++) {
           const t = i / (n * 2);
           const k = i % 2 ? A : -A * 0.15;
@@ -200,7 +205,7 @@ window.LP = window.LP || {};
       return `
       <div class="ev k-${kind} ${done ? 'is-done' : ''} ${past ? 'is-past' : ''} ${tb || ta ? 'has-travel' : ''} ${h - ((tb + ta) / 60) * HOUR_PX < 36 ? 'is-short' : ''} ${h < 24 ? 'is-tiny' : ''} ${warn ? 'warn-' + warn : ''} ${n > 1 ? 'is-seg' : ''} ${first ? '' : 'seg-cont'}"
            data-id="${ev.id}" data-date="${date}" data-mood="${ev.mood || ''}" ${n > 1 ? `data-seg="${i}"` : ''}
-           style="top:${px(s) + 1}px;height:${h}px;${tb ? `--tb:${(tb / 60) * HOUR_PX}px;` : ''}${ta ? `--ta:${(ta / 60) * HOUR_PX}px;` : ''}left:calc(${it.lane * w}% + 3px);width:calc(${w}% - 6px)"
+           style="top:${px(s) + 1}px;height:${h}px;--lines:${Math.max(1, Math.min(4, Math.floor((h - 20) / 16)))};${tb ? `--tb:${(tb / 60) * HOUR_PX}px;` : ''}${ta ? `--ta:${(ta / 60) * HOUR_PX}px;` : ''}left:calc(${it.lane * w}% + 3px);width:calc(${w}% - 6px)"
            title="${u.esc(ev.title)}${hint ? ' — ' + u.esc(hint) : ''}">
         ${trBefore}
         ${first ? '<div class="ev-resize is-top"></div>' : ''}
@@ -418,7 +423,7 @@ window.LP = window.LP || {};
       mobileHead = `
         <div class="m-days">${days.map((d, k) => `<button type="button" class="m-day ${d === mday ? 'on' : ''} ${d === today ? 'is-today' : ''} ${k >= 5 ? 'weekend' : ''}" data-mday="${d}">
           <small>${u.DAYS_SHORT[k].toUpperCase()}</small><b>${u.parse(d).getDate()}</b><i>·</i></button>`).join('')}</div>
-        <div class="m-daybar">
+        <div class="m-daybar ${mday === today ? 'is-today' : ''}">
           <span>${u.DAYS_LONG[u.weekday(mday)].toUpperCase()}, ${u.fmtDay(mday).toUpperCase()}${mday === today ? ' · СЬОГОДНІ' : ''}</span>
 ${jBtn}</div>`;
     }
