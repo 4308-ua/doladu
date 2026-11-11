@@ -3,6 +3,7 @@ window.LP = window.LP || {};
 
 (function (LP) {
   const u = LP.u;
+  const TG_BOT = 'NA_SVIY_LAD_Bot';
   const main = document.getElementById('main');
   const TITLES = { board: 'ДЕНЬ', year: 'РІК', goals: 'ЦІЛІ', habits: 'ЗВИЧКИ', balance: 'БАЛАНС' };
 
@@ -231,8 +232,18 @@ window.LP = window.LP || {};
         <label class="check"><input type="checkbox" name="orderWarnings" ${s.orderWarnings !== false ? 'checked' : ''}> Попереджати про важкі задачі підряд</label>
         <label class="check"><input type="checkbox" name="fitDay" ${s.fitDay !== false ? 'checked' : ''}> Весь день на екрані без прокрутки (масштаб підлаштовується під вікно)</label>
         <div class="field tg-set"><span>Нагадування в Telegram</span>
+          <div class="tg-link">
+            <div class="tg-link-row">
+              <button type="button" class="btn btn-primary" data-tg-link>${s.tgChat ? 'ПІДКЛЮЧИТИ ЗАНОВО' : 'ПІДКЛЮЧИТИ TELEGRAM →'}</button>
+              ${s.tgChat ? '<button type="button" class="link-btn" data-tg-off>ВІДКЛЮЧИТИ</button>' : ''}
+            </div>
+            <p class="hint tg-status ${s.tgChat ? 'is-on' : ''}">${s.tgChat ? '✓ Telegram підключено.' : 'Відкриється бот — натисни «Старт» і повернись сюди: підключиться саме.'}</p>
+            <details class="tg-manual"><summary>або вручну за ID</summary>
+              <label class="field"><span>Твій Telegram ID</span><input type="text" name="tgChat" inputmode="numeric" value="${LP.u.esc(s.tgChat || '')}" placeholder="123456789"></label>
+              <p class="hint">ID дізнаєшся в боті @userinfobot (рядок «Id»), потім напиши @${TG_BOT} /start.</p>
+            </details>
+          </div>
           <div class="row">
-            <label class="field"><span>Твій Telegram ID</span><input type="text" name="tgChat" inputmode="numeric" value="${LP.u.esc(s.tgChat || '')}" placeholder="123456789"></label>
             <label class="field"><span>Нагадувати</span><select name="remindBefore">${[[-1, 'не нагадувати'], [0, 'на початку'], [5, 'за 5 хв'], [10, 'за 10 хв'], [15, 'за 15 хв'], [30, 'за 30 хв'], [60, 'за годину']].map(([v, t]) => `<option value="${v}" ${v === s.remindBefore ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
             <label class="field"><span>План на день</span><select name="morningAt">${[[-1, 'не надсилати']].concat([6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10].map((h) => [h * 60, LP.u.fmtTime(h * 60)])).map(([v, t]) => `<option value="${v}" ${v === s.morningAt ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
           </div>
@@ -245,7 +256,7 @@ window.LP = window.LP || {};
             <div class="city-results"></div>
             <p class="hint city-chosen">${s.city ? 'Обрано: ' + LP.u.esc(s.city.label || s.city.name) : 'Не обрано — план дня прийде без погоди.'}</p>
           </div>
-          <p class="hint">ID дізнаєшся в Telegram у боті @userinfobot (рядок «Id»). Потім напиши своєму боту /start — інакше він не зможе тобі писати. Щоб бот знав, коли писати, у хмару йде розклад і дати з «Року» на 3 тижні вперед (назви, дати й час) — решта даних лишається зашифрованою. Без ID нічого не передається.</p>
+          <p class="hint">Щоб бот знав, коли писати, у хмару йде розклад і дати з «Року» на 3 тижні вперед (назви, дати й час) — решта даних лишається зашифрованою. Без підключення нічого не передається.</p>
         </div>
         <div class="storage-meter"><span class="label">ДАНІ</span>
           <p class="hint">Зберігаються в цьому браузері й зашифрованими — у хмарі (синхронізуються між пристроями). Зайнято ${(JSON.stringify(LP.data).length * 2 / 1024).toFixed(0)} КБ з приблизно 5 000 КБ. Найбільше місця беруть картинки цілей.</p></div>
@@ -289,6 +300,39 @@ window.LP = window.LP || {};
             { timeout: 10000 }
           );
         });
+        // Telegram за посиланням
+        const tgStatus = form.querySelector('.tg-status');
+        const tgSay = (t, on) => { tgStatus.textContent = t; tgStatus.classList.toggle('is-on', !!on); };
+        let tgTimer = null;
+        form.querySelector('[data-tg-link]').addEventListener('click', () => {
+          if (!LP.sync || !LP.sync.signedIn) return tgSay('Спершу увійди в акаунт.');
+          const code = Array.from(crypto.getRandomValues(new Uint8Array(12)), (x) => x.toString(16).padStart(2, '0')).join('');
+          const url = `https://t.me/${TG_BOT}?start=${code}`;
+          const w = window.open(url, '_blank');
+          tgSay('Чекаю на «Старт» у Telegram…');
+          LP.sync.tgLink(code).then(() => {
+            if (!w) tgStatus.innerHTML = `Відкрий бота: <a href="${url}" target="_blank" rel="noopener">@${TG_BOT}</a> — і натисни «Старт».`;
+            const t0 = Date.now();
+            clearInterval(tgTimer);
+            const check = async () => {
+              if (!document.body.contains(form)) return clearInterval(tgTimer);
+              if (Date.now() - t0 > 10 * 60 * 1000) { clearInterval(tgTimer); return tgSay('Не дочекався — натисни «Підключити» ще раз.'); }
+              try {
+                const chat = await LP.sync.tgCheck(code);
+                if (!chat) return;
+                clearInterval(tgTimer);
+                form.tgChat.value = chat;
+                s.tgChat = chat;
+                LP.save({ render: false });
+                tgSay('✓ Підключено! Бот уже написав тобі в Telegram.', true);
+              } catch (e) { /* мережа — спробуємо ще */ }
+            };
+            tgTimer = setInterval(check, 2500);
+            document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+          }).catch(() => tgSay('Не вдалося створити посилання — перевір інтернет і спробуй ще.'));
+        });
+        const off = form.querySelector('[data-tg-off]');
+        if (off) off.addEventListener('click', () => { form.tgChat.value = ''; s.tgChat = ''; LP.save({ render: false }); off.remove(); tgSay('Відключено — нагадувань більше не буде.'); });
         form.querySelector('[data-tour-again]').addEventListener('click', () => { LP.closeModal(); setTimeout(LP.startTour, 200); });
       },
       onSubmit: (form) => {

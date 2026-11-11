@@ -2547,3 +2547,11 @@ html.theme-soft .city-opt { border-radius: var(--r-sm); }
   .pl-list button { grid-template-columns: 100px minmax(0, 1fr); }
 }
 .chart-row-1 { grid-template-columns: minmax(0, 1fr) !important; }
+
+/* Telegram за посиланням */
+.tg-link { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 10px; }
+.tg-link-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.tg-status.is-on { color: var(--ink); font-weight: 700; }
+.tg-manual summary { cursor: var(--c-pointer); font-size: 12.5px; color: var(--gray-2); }
+.tg-manual[open] summary { margin-bottom: 6px; }
+.tg-manual .field { max-width: 260px; }

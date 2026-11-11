@@ -572,5 +572,15 @@ window.LP = window.LP || {};
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go);
   else setTimeout(go, 0);
 
-  LP.sync = { get signedIn() { return !!auth; }, get email() { return auth && auth.user.email; }, now: () => pull(true) };
+  LP.sync = {
+    get signedIn() { return !!auth; }, get email() { return auth && auth.user.email; }, now: () => pull(true),
+    // Telegram за посиланням: одноразовий код → t.me/бот?start=код → бот записує chat_id
+    async tgLink(code) {
+      await api('/rest/v1/tg_link', { method: 'POST', token: await token(), headers: { Prefer: 'return=minimal' }, body: { code, user_id: auth.user.id } });
+    },
+    async tgCheck(code) {
+      const r = await api('/rest/v1/tg_link?select=chat_id&code=eq.' + encodeURIComponent(code), { token: await token() });
+      return (r && r[0] && r[0].chat_id) || null;
+    },
+  };
 })(window.LP);
