@@ -2555,3 +2555,12 @@ html.theme-soft .city-opt { border-radius: var(--r-sm); }
 .tg-manual summary { cursor: var(--c-pointer); font-size: 12.5px; color: var(--gray-2); }
 .tg-manual[open] summary { margin-bottom: 6px; }
 .tg-manual .field { max-width: 260px; }
+
+/* Рік: підписи-прапорці на прямих ніжках (без вільного перетягування — не сплітаються) */
+.yr-stem { stroke-width: 1.2; }
+.yr-dstem { stroke-width: 1; opacity: 0.38; }
+.yr-dtag { cursor: default; box-shadow: none; padding: 2px 7px; }
+button.yr-dtag[data-date-id] { cursor: var(--c-pointer); }
+.yr-dtag.is-holiday { border: 0; background: var(--desk); padding: 2px 4px; color: var(--gray-2); font-weight: 500; }
+.yr-point { cursor: var(--c-pointer); }
+html.theme-soft .yr-dtag.is-holiday { border-radius: 4px !important; }

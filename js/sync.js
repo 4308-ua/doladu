@@ -164,6 +164,8 @@ window.LP = window.LP || {};
   async function pull(manual) {
     if (!auth || !dek || busy) return;
     if (!navigator.onLine) return setStatus('offline');
+    // відкрита форма тримає посилання на поточні дані — не підміняємо їх посеред редагування
+    if (!manual && document.querySelector('.modal-backdrop:not(.is-leaving)')) return;
     busy = true; setStatus('busy');
     try {
       const row = await fetchRow();

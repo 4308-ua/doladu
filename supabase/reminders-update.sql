@@ -32,13 +32,19 @@ begin
     continue when t is null;
     p := coalesce((resp->'hourly'->'precipitation_probability'->>h)::int, 0);
     c := coalesce((resp->'hourly'->'weather_code'->>h)::int, -1);
-    out := out || E'\n' || lpad(h::text, 2, '0') || ':00  ' || lad_wicon(c) || ' '
+    out := out || E'\n' || '<code>' || lpad(h::text, 2, '0') || ':00</code>  ' || lad_wicon(c) || ' '
            || case when round(t) > 0 then '+' else '' end || round(t)::int || '°'
-           || case when p >= 30 then '  💧' || p || '%' else '' end;
+           || case when p >= 30 then '  ·  опади ' || p || '%' else '' end;
   end loop;
   if out = '' then return null; end if;
-  return '🌡 Погода' || coalesce(', ' || nullif(city, ''), '') || ':' || out;
+  return '<b>ПОГОДА' || coalesce(' · ' || upper(lad_esc(nullif(city, ''))), '') || '</b>' || out;
 end
+$f$;
+
+-- повідомлення йдуть як HTML (жирні заголовки, моноширинний час) — текст користувача екрануємо
+create or replace function public.lad_esc(t text) returns text
+language sql immutable as $f$
+  select replace(replace(replace(t, '&', '&amp;'), '<', '&lt;'), '>', '&gt;')
 $f$;
 
 create or replace function public.lad_send(tok text, chat text, txt text) returns void
@@ -46,7 +52,7 @@ language plpgsql as $f$
 begin
   perform net.http_post(
     url := 'https://api.telegram.org/bot' || tok || '/sendMessage',
-    body := jsonb_build_object('chat_id', chat, 'text', txt, 'disable_web_page_preview', true,
+    body := jsonb_build_object('chat_id', chat, 'text', txt, 'parse_mode', 'HTML', 'disable_web_page_preview', true,
       'reply_markup', jsonb_build_object('inline_keyboard', jsonb_build_array(jsonb_build_array(
         jsonb_build_object('text', 'Відкрити «На свій лад» →', 'url', 'https://4308-ua.github.io/doladu/'))))),
     headers := '{"Content-Type": "application/json"}'::jsonb);
@@ -98,18 +104,18 @@ begin
         insert into reminders_sent (user_id, key) values (r.user_id, 'ev:' || (ev->>'id') || ':' || ds)
           on conflict do nothing;
         continue when not found;
-        txt := case when lead = 0 then '⏰ Зараз: ' else '⏰ Через ' || case when lead = 60 then 'годину' else lead || ' хв' end || ': ' end
-               || (ev->>'title') || E'\n' || lad_hm(st) || '—' || lad_hm(en);
+        txt := '<b>■ ' || case when lead = 0 then 'ЗАРАЗ' when lead = 60 then 'ЧЕРЕЗ ГОДИНУ' else 'ЧЕРЕЗ ' || lead || ' ХВ' end || '</b>'
+               || E'\n' || lad_esc(ev->>'title') || E'\n' || '<code>' || lad_hm(st) || '—' || lad_hm(en) || '</code>';
         perform lad_send(tok, chat, txt);
       end loop;
     end if;
 
     -- дати з «Року»: сьогодні й завтра
-    select string_agg('• ' || (d->>'text'), E'\n') into dtoday
+    select string_agg('— ' || lad_esc(d->>'text'), E'\n') into dtoday
       from jsonb_array_elements(coalesce(r.data->'dates', '[]'::jsonb)) d where d->>'date' = ds;
-    select string_agg('• ' || (d->>'text'), E'\n') into dtom
+    select string_agg('— ' || lad_esc(d->>'text'), E'\n') into dtom
       from jsonb_array_elements(coalesce(r.data->'dates', '[]'::jsonb)) d where d->>'date' = ds2;
-    dtxt := nullif(concat_ws(E'\n\n', '📅 Сьогодні:' || E'\n' || dtoday, '🔔 Завтра:' || E'\n' || dtom), '');
+    dtxt := nullif(concat_ws(E'\n\n', '<b>СЬОГОДНІ</b>' || E'\n' || dtoday, '<b>ЗАВТРА</b>' || E'\n' || dtom), '');
 
     if morning < 0 then
       -- план дня вимкнено — дати однаково нагадуємо окремим повідомленням о 9:00
@@ -143,15 +149,15 @@ begin
         continue when wresp is null and nowmin < morning + 2;
       end if;
       insert into reminders_sent (user_id, key) values (r.user_id, 'day:' || ds) on conflict do nothing;
-      select string_agg(lad_hm((e->>'start')::int) || '—' || lad_hm((e->>'end')::int) || '  ' || (e->>'title'), E'\n' order by (e->>'start')::int), count(*)
+      select string_agg('<code>' || lad_hm((e->>'start')::int) || '—' || lad_hm((e->>'end')::int) || '</code>  ' || lad_esc(e->>'title'), E'\n' order by (e->>'start')::int), count(*)
         into plan, n
         from jsonb_array_elements(coalesce(r.data->'events', '[]'::jsonb)) e
         where lad_occurs(e, today);
       wtxt := lad_weather_text(wresp, city->>'name');
-      txt := '☀️ ' || days[extract(isodow from today)::int] || ', ' || extract(day from today)::int || ' ' || months[extract(month from today)::int]
+      txt := '<b>■ ' || upper(days[extract(isodow from today)::int]) || ' · ' || extract(day from today)::int || ' ' || upper(months[extract(month from today)::int]) || '</b>'
              || coalesce(E'\n\n' || wtxt, '')
              || coalesce(E'\n\n' || dtxt, '')
-             || E'\n\n' || coalesce('📋 План:' || E'\n' || plan, 'Сьогодні нічого не заплановано.');
+             || E'\n\n' || coalesce('<b>ПЛАН</b>' || E'\n' || plan, 'На сьогодні нічого не заплановано — день вільний.');
       perform lad_send(tok, chat, txt);
     end if;
   end loop;

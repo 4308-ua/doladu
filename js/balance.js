@@ -304,8 +304,10 @@ window.LP = window.LP || {};
         }));
       },
       onSubmit: (form) => {
-        nt.doing = form.doing.value.trim();
-        nt.change = form.change.value.trim();
+        // беремо нотатки наново: поки форма була відкрита, дані могли оновитися з хмари
+        const cur = notesOf(id);
+        cur.doing = form.doing.value.trim();
+        cur.change = form.change.value.trim();
         if (form._v && form._v !== score) LP.setAreaScore(id, form._v);
         else LP.save();
       },
