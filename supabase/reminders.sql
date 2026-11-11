@@ -108,6 +108,8 @@ declare
   nowmin int := extract(hour from now() at time zone 'Europe/Kyiv')::int * 60 + extract(minute from now() at time zone 'Europe/Kyiv')::int;
   ds text := to_char((now() at time zone 'Europe/Kyiv')::date, 'YYYY-MM-DD');
   st int; en int; due int; txt text; plan text; n int;
+  dtoday text; dtom text; dtxt text;
+  ds2 text := to_char((now() at time zone 'Europe/Kyiv')::date + 1, 'YYYY-MM-DD');
   days text[] := array['Понеділок','Вівторок','Середа','Четвер','Пʼятниця','Субота','Неділя'];
   months text[] := array['січня','лютого','березня','квітня','травня','червня','липня','серпня','вересня','жовтня','листопада','грудня'];
 begin
@@ -140,7 +142,21 @@ begin
       end loop;
     end if;
 
-    if morning < 0 then continue; end if;
+    -- дати з «Року»: сьогодні й завтра
+    select string_agg('• ' || (d->>'text'), E'\n') into dtoday
+      from jsonb_array_elements(coalesce(r.data->'dates', '[]'::jsonb)) d where d->>'date' = ds;
+    select string_agg('• ' || (d->>'text'), E'\n') into dtom
+      from jsonb_array_elements(coalesce(r.data->'dates', '[]'::jsonb)) d where d->>'date' = ds2;
+    dtxt := nullif(concat_ws(E'\n\n', '📅 Сьогодні:' || E'\n' || dtoday, '🔔 Завтра:' || E'\n' || dtom), '');
+
+    if morning < 0 then
+      -- план дня вимкнено — дати однаково нагадуємо окремим повідомленням о 9:00
+      if dtxt is not null and nowmin >= 540 and nowmin < 543 then
+        insert into reminders_sent (user_id, key) values (r.user_id, 'dates:' || ds) on conflict do nothing;
+        if found then perform lad_send(tok, chat, dtxt); end if;
+      end if;
+      continue;
+    end if;
 
     -- погода: за 10 хв до плану дня просимо прогноз (відповідь прийде за кілька секунд)
     if city is not null and nowmin >= morning - 10 and nowmin < morning + 3
@@ -172,6 +188,7 @@ begin
       wtxt := lad_weather_text(wresp, city->>'name');
       txt := '☀️ ' || days[extract(isodow from today)::int] || ', ' || extract(day from today)::int || ' ' || months[extract(month from today)::int]
              || coalesce(E'\n\n' || wtxt, '')
+             || coalesce(E'\n\n' || dtxt, '')
              || E'\n\n' || coalesce('📋 План:' || E'\n' || plan, 'Сьогодні нічого не заплановано.');
       perform lad_send(tok, chat, txt);
     end if;

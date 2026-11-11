@@ -459,6 +459,26 @@ window.LP = window.LP || {};
     }));
   }
 
+  // Дати з «Року» на [from, to] — для нагадувань у Telegram (за день і в сам день).
+  LP.yearDates = function (from, to) {
+    const L = life(), out = [];
+    const end = u.addDays(to, 1);
+    yearly(from, end).forEach((it) => out.push({ date: it.date, text: it.title }));
+    L.marks.forEach((m) => {
+      if (m.start >= from && m.start <= to) out.push({ date: m.start, text: (m.title || 'Позначка') + (m.end ? ` (до ${u.fmtDay(m.end)})` : '') });
+      const items = (m.plan && Array.isArray(m.plan.items)) ? m.plan.items : [];
+      items.forEach((it) => {
+        if (it.start >= from && it.start <= to && it.text) out.push({ date: it.start, text: it.text + (it.end && it.end !== it.start ? ` (до ${u.fmtDay(it.end)})` : '') });
+      });
+    });
+    if (L.birthday) {
+      for (let y = Number(from.slice(0, 4)); y <= Number(to.slice(0, 4)); y++) {
+        const d = mdIn(y, L.birthday.slice(5));
+        if (d >= from && d <= to) out.push({ date: d, text: `Твій день народження — ${y - Number(L.birthday.slice(0, 4))} р.` });
+      }
+    }
+    return out.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  };
   LP.lifeMark = (id) => life().marks.find((m) => m.id === id) || null;
 
   function openMarkForm(m, start, end) {
