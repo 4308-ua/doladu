@@ -652,7 +652,17 @@ window.LP = window.LP || {};
           <label><input type="radio" name="ok" value="1" ${p.ok ? 'checked' : ''}><span>Мені ок, як є</span></label>
           <label><input type="radio" name="ok" value="0" ${!p.ok ? 'checked' : ''}><span>Хочу щось змінити</span></label>
         </div>
-        <p class="hint">Якщо хочеш змінити — імʼя на карті буде в рамці, а зі точки виходить стрілка. Перетягни її кінець туди, куди хочеш, щоб рухались стосунки.</p>
+        <p class="hint person-hint-map">Якщо хочеш змінити — імʼя на карті буде в рамці, а з точки виходить стрілка. Перетягни її кінець туди, куди хочеш рухати стосунки.</p>
+        <div class="person-quad">
+          <div class="seg" role="radiogroup" aria-label="Як ця людина на тебе впливає">
+            <label><input type="radio" name="qy" value="1" ${p.y >= 0.5 ? 'checked' : ''}><span>Заряджає</span></label>
+            <label><input type="radio" name="qy" value="0" ${p.y < 0.5 ? 'checked' : ''}><span>Виснажує</span></label>
+          </div>
+          <div class="seg" role="radiogroup" aria-label="Як часто бачитесь">
+            <label><input type="radio" name="qx" value="1" ${p.x >= 0.5 ? 'checked' : ''}><span>Бачимось часто</span></label>
+            <label><input type="radio" name="qx" value="0" ${p.x < 0.5 ? 'checked' : ''}><span>Рідко</span></label>
+          </div>
+        </div>
         <label class="field"><span>Нотатка</span><input type="text" name="note" maxlength="120" value="${u.esc(p.note || '')}" placeholder="Напр. хочу бачитися частіше"></label>`,
       extra: isNew ? [] : [{
         text: 'Видалити',
@@ -670,6 +680,11 @@ window.LP = window.LP || {};
         }
         const ok = form.querySelector('input[name=ok]:checked').value === '1';
         const fields = { id: p.id, name, note: form.note.value.trim(), ok };
+        // квадрант змінюємо лише коли його справді перемкнули — точне місце на карті лишається
+        const qy = form.querySelector('input[name=qy]:checked').value === '1', qx = form.querySelector('input[name=qx]:checked').value === '1';
+        const fresh = isNew && LP.isMobile && LP.isMobile();
+        if (fresh || qy !== (p.y >= 0.5)) fields.y = qy ? 0.75 : 0.25;
+        if (fresh || qx !== (p.x >= 0.5)) fields.x = qx ? 0.75 : 0.25;
         if (!ok && p.tx == null) {
           fields.tx = u.clamp(p.x - 0.2, 0.05, 0.95);
           fields.ty = u.clamp(p.y + 0.1, 0.05, 0.95);

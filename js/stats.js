@@ -306,9 +306,9 @@ window.LP = window.LP || {};
     root.innerHTML = `
       <div class="page">
         <div class="tiles">
-          ${tile('СТАН ЗА ТИЖДЕНЬ', moodAvg ? moodAvg.toFixed(1).replace('.', ',') : '—', moodAvg ? `СЕРЕДНЄ З ${moodN} ЗАПИС${moodN === 1 ? 'У' : 'ІВ'} «ЯК ТИ?»` : 'ЗАПИШИ «ЯК ТИ?» В ДЕНЬ')}
+          ${tile('СТАН ЗА ТИЖДЕНЬ', moodAvg ? moodAvg.toFixed(1).replace('.', ',') : '—', moodAvg ? `СЕРЕДНЄ ІЗ ${moodN} ЗАПИС${moodN === 1 ? 'У' : 'ІВ'} «ЯК ТИ?»` : 'ЗАПИШИ «ЯК ТИ?» В ДЕНЬ')}
           ${tile('ЦІЛІ ТИЖНЯ', `${s.weekGoalsDone}/${s.weekGoals}`, s.weekGoals ? `${u.pct(s.weekGoalsDone, s.weekGoals)}% ДОСЯГНУТО` : 'НЕ ПОСТАВЛЕНО')}
-          ${tile('ЗВИЧКИ', `${u.pct(s.habitDone, s.habitTarget)}%`, `${s.habitDone} З ${s.habitTarget} ВІДМІТОК`)}
+          ${tile('ЗВИЧКИ', `${u.pct(s.habitDone, s.habitTarget)}%`, `${s.habitDone} ІЗ ${s.habitTarget} ВІДМІТОК`)}
           ${tile('БАЛАНС', `${balLow}`, balLow ? `СФЕР${balLow === 1 ? 'А' : balLow < 5 ? 'И' : ''} НИЖЧЕ РІВНЯ ${balT}` : `УСЕ НА РІВНІ ${balT}+`)}
         </div>
         ${moodChart(ws)}

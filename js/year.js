@@ -75,8 +75,6 @@ window.LP = window.LP || {};
     return out.sort((a, b) => (a.date < b.date ? -1 : 1));
   }
 
-  // ширина підпису (моно 10–11px)
-  const textW = (s, k = 6.7) => Math.ceil(String(s).length * k) + 14;
 
   let justDragged = 0;
   function render(root) {
@@ -89,70 +87,103 @@ window.LP = window.LP || {};
     const total = days(from, to);
     const today = u.today();
     const mob = LP.isMobile && LP.isMobile();
-    const W = mob ? 980 : Math.max(640, (root.clientWidth || document.documentElement.clientWidth) - 64);
-    const PADL = 28, PADR = 28;
+    // місяць має вміщати колонку підписів — на вузькому екрані лінія гортається вбік
+    // телефон: лінія — огляд року на ширину екрана, а місяці йдуть списком униз
+    const W = mob ? Math.max(300, (root.clientWidth || document.documentElement.clientWidth) - 28) : Math.max(1180, (root.clientWidth || document.documentElement.clientWidth) - 64);
+    const PADL = mob ? 12 : 28, PADR = mob ? 12 : 28;
     const span = W - PADL - PADR;
     const xOf = (date) => PADL + (days(from, date) / total) * span;
-    const LY = 250; // лінія
+    const HMAX = mob ? 52 : 132; // вища дуга лише з'їдає місце над лінією
     const nowIn = today >= from && today < to;
-    const nowX = nowIn ? xOf(today) : null;
+    const WD = ['НД', 'ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ'];
+    const wd = (d) => WD[u.parse(d).getDay()];
 
-    // --- над лінією: мої позначки й періоди
+    // --- мої позначки й періоди
     const marks = L.marks.filter((m) => (m.end || m.start) >= from && m.start < to);
     const points = marks.filter((m) => !m.end).sort((a, b) => (a.start < b.start ? -1 : 1));
     const spans = marks.filter((m) => m.end).sort((a, b) => days(b.start, b.end) - days(a.start, a.end));
-    let arcs = '', arcLabels = '', arcEnds = '';
     const geo = {};
-    const arcD = (a, w, h) => `M${a},${LY} A${w / 2},${h} 0 0 1 ${a + w},${LY}`;
-    const autoH = (w) => u.clamp(w * 0.42, 26, 200);
+    const autoH = (w) => u.clamp(w * 0.42, mob ? 14 : 26, HMAX);
     spans.forEach((m) => {
       const a = Math.max(PADL, xOf(m.start < from ? from : m.start));
       const b = Math.min(PADL + span, xOf(m.end >= to ? to : m.end));
       const w = Math.max(b - a, 6);
-      const h = m.h ? u.clamp(m.h, 18, LY - 24) : autoH(w);
-      geo[m.id] = { a, w, h };
+      geo[m.id] = { a, w, h: m.h ? u.clamp(m.h, 18, HMAX) : autoH(w) };
+    });
+    // лінія стоїть рівно настільки низько, щоб над нею вмістилися дуги
+    const LY = mob ? 92 : spans.length ? u.clamp(Math.max(...spans.map((m) => geo[m.id].h)) + 58, 110, HMAX + 58) : 96;
+    const nowX = nowIn ? xOf(today) : null;
+    const arcD = (a, w, h) => `M${a},${LY} A${w / 2},${h} 0 0 1 ${a + w},${LY}`;
+    let arcs = '', arcLabels = '', arcEnds = '';
+    spans.forEach((m) => {
+      const g = geo[m.id];
+      const { a, w, h } = g;
       const past = m.end < today;
-      arcs += `<path class="yr-arc ${past ? 'is-past' : ''}" data-arc="${m.id}" d="${arcD(a, w, h)}" data-mark="${m.id}"><title>${u.esc(m.title)} · ${u.fmtDay(m.start)} — ${u.fmtDay(m.end)}</title></path>`;
+      arcs += `<path class="yr-arc ${past ? 'is-past' : ''}" data-arc="${m.id}" data-k="m:${m.id}" d="${arcD(a, w, h)}" data-mark="${m.id}"><title>${u.esc(m.title)} · ${u.fmtDay(m.start)} — ${u.fmtDay(m.end)}</title></path>`;
       arcEnds += `<circle class="yr-arc-end" data-arcend="${m.id}" data-end="s" cx="${a}" cy="${LY}" r="7"><title>Тягни — змінити початок</title></circle><circle class="yr-arc-end" data-arcend="${m.id}" data-end="e" cx="${a + w}" cy="${LY}" r="7"><title>Тягни — змінити кінець</title></circle>`;
-      arcLabels += `<button type="button" class="yr-tag yr-arc-tag ${past ? 'is-past' : ''}" data-mark="${m.id}" data-drag="arc" data-key="${m.id}" style="left:${a + w / 2}px;top:${LY - h}px" title="${u.esc(m.title)}${m.note ? ' — ' + u.esc(m.note) : ''} · тягни — посунути період і висоту дуги">${u.esc(m.title)}<small>${u.fmtDay(m.start)} — ${u.fmtDay(m.end)}</small></button>`;
-    });
-    // позначки над лінією й щорічне під нею: місце кожному підпису шукає layout() уже після рендера,
-    // за справжньою шириною — ніжки завжди прямі й не перетинають підписів
-    let stems = '', pointTags = '';
-    points.forEach((m) => {
-      const x = xOf(m.start);
-      const past = m.start < today;
-      stems += `<line class="yr-stem ${past ? 'is-past' : ''}" data-stem="m:${m.id}" x1="${x}" y1="${LY}" x2="${x}" y2="${LY}"/><circle class="yr-pin ${past ? 'is-past' : ''}" data-pindot="${m.id}" cx="${x}" cy="${LY}" r="4.5"/><circle class="yr-pin-hit" data-pin="${m.id}" cx="${x}" cy="${LY}" r="8"><title>Тягни — перенести дату</title></circle>`;
-      pointTags += `<button type="button" class="yr-tag yr-point ${past ? 'is-past' : ''}" data-mark="${m.id}" data-side="up" data-key="m:${m.id}" data-ax="${x}" style="left:${x}px;top:0" title="${u.esc(m.title)}${m.note ? ' — ' + u.esc(m.note) : ''}">${u.esc(m.title)}<small>${u.fmtDay(m.start)}</small></button>`;
+      if (!mob) arcLabels += `<button type="button" class="yr-tag yr-arc-tag ${past ? 'is-past' : ''}" data-mark="${m.id}" data-k="m:${m.id}" data-drag="arc" data-key="${m.id}" style="left:${a + w / 2}px;top:${LY - h}px" title="${u.esc(m.title)}${m.note ? ' — ' + u.esc(m.note) : ''} · тягни — посунути період і висоту дуги">${u.esc(m.title)}<small>${u.fmtDay(m.start)} — ${u.fmtDay(m.end)}</small></button>`;
     });
 
-    // --- під лінією: щорічне
+    // --- точки на лінії; підписи до них живуть у колонках місяців під лінією
     const yl = yearly(from, to);
-    let dStems = '', dTags = '';
-    yl.forEach((it) => {
-      const x = xOf(it.date);
-      const key = (it.type === 'holiday' ? 'h:' : 'd:') + it.id + ':' + it.date;
-      const past = it.date < today;
-      const cls = `${it.type === 'holiday' ? 'is-holiday' : 'k-' + it.kind} ${past ? 'is-past' : ''}`;
-      dStems += `<line class="yr-dstem ${cls}" data-stem="${key}" x1="${x}" y1="${LY}" x2="${x}" y2="${LY}"/><circle class="yr-ddot ${cls}" cx="${x}" cy="${LY}" r="3"/>`;
-      dTags += `<button type="button" class="yr-dtag ${cls}" ${it.type === 'date' ? `data-date-id="${it.id}"` : ''} data-side="down" data-key="${key}" data-ax="${x}" style="left:${x}px;top:${LY + 28}px" title="${u.esc(it.title)} · ${u.fmtDate(it.date)}">${u.esc(it.label)}</button>`;
+    let dots = '';
+    const entries = [];
+    points.forEach((m) => {
+      const x = xOf(m.start), past = m.start < today;
+      dots += `<circle class="yr-pin ${past ? 'is-past' : ''}" data-pindot="${m.id}" data-k="m:${m.id}" cx="${x}" cy="${LY}" r="4.5"/><circle class="yr-pin-hit" data-pin="${m.id}" data-k="m:${m.id}" cx="${x}" cy="${LY}" r="9"><title>${u.esc(m.title)} · ${wd(m.start)} ${u.fmtDay(m.start)} · тягни — перенести</title></circle>`;
+      entries.push({ date: m.start, k: 'm:' + m.id, cls: 't-mark', attr: `data-mark="${m.id}"`, text: m.title, tip: (m.note ? m.note + ' · ' : '') + 'клік — змінити' });
     });
-    let H = LY + 100;
+    spans.forEach((m) => {
+      const start = m.start < from ? from : m.start;
+      entries.push({ date: start, k: 'm:' + m.id, cls: 't-span', attr: `data-mark="${m.id}"`, text: m.title, sub: `до ${u.fmtDay(m.end)}`, past: m.end < today, tip: 'клік — відкрити період' });
+    });
+    yl.forEach((it) => {
+      const x = xOf(it.date), past = it.date < today;
+      const k = (it.type === 'holiday' ? 'h:' : 'd:') + it.id + ':' + it.date;
+      const cls = it.type === 'holiday' ? 'is-holiday' : 'k-' + it.kind;
+      dots += `<circle class="yr-ddot ${cls} ${past ? 'is-past' : ''}" data-k="${k}" cx="${x}" cy="${LY}" r="3.2"/><circle class="yr-dhit" data-k="${k}" ${it.type === 'date' ? `data-date-id="${it.id}"` : ''} cx="${x}" cy="${LY}" r="7"><title>${u.esc(it.title)} · ${wd(it.date)} ${u.fmtDay(it.date)}</title></circle>`;
+      entries.push({ date: it.date, k, cls: it.type === 'holiday' ? 't-hol' : 't-' + it.kind, attr: it.type === 'date' ? `data-date-id="${it.id}"` : '', text: it.label, tip: it.title });
+    });
+    entries.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
-    // --- місяці
-    let months = '';
-    const y0 = Number(from.slice(0, 4));
-    for (let y = y0; y <= y0 + 1; y++) {
-      for (let m = 1; m <= 12; m++) {
-        const d = `${y}-${pad(m)}-01`;
-        if (d <= from || d >= to) continue;
-        const x = xOf(d);
-        const nxt = m === 12 ? `${y + 1}-01-01` : `${y}-${pad(m + 1)}-01`;
-        const mid = xOf(nxt < to ? nxt : to);
-        months += `<line class="yr-tick" x1="${x}" y1="${LY - 7}" x2="${x}" y2="${LY + 7}"/>`;
-        if (mid - x > 34) months += `<text class="yr-month" x="${x + 5}" y="${LY - 9}">${u.MONTHS[m - 1].slice(0, 3).toUpperCase()}${m === 1 ? ' ' + y : ''}</text>`;
-      }
+    // --- місяці: відрізки лінії → колонки (закороткий край року приєднується до сусіда)
+    const segs = [];
+    for (let cur = from; cur < to;) {
+      const y = Number(cur.slice(0, 4)), m = Number(cur.slice(5, 7));
+      const nxt = m === 12 ? `${y + 1}-01-01` : `${y}-${pad(m + 1)}-01`;
+      const end = nxt < to ? nxt : to;
+      segs.push({ ym: cur.slice(0, 7), y, m, from: cur, to: end, x0: xOf(cur), x1: xOf(end) });
+      cur = nxt;
     }
+    let ticks = '';
+    segs.forEach((sg, i) => { if (i) ticks += `<line class="yr-tick" x1="${sg.x0}" y1="${LY - 7}" x2="${sg.x0}" y2="${LY + 7}"/>`; });
+    const cols = [];
+    let lead = [];
+    segs.forEach((sg) => {
+      if (sg.x1 - sg.x0 >= 72 || segs.length < 3) { cols.push({ x0: lead.length ? lead[0].x0 : sg.x0, x1: sg.x1, groups: lead.concat(sg) }); lead = []; }
+      else if (cols.length) { const c = cols[cols.length - 1]; c.groups.push(sg); c.x1 = sg.x1; }
+      else lead.push(sg);
+    });
+    const itemHtml = (e) => {
+      const past = e.past != null ? e.past : e.date < today;
+      const long = !mob && String(e.text).split(/[\s-]+/).some((w) => w.length >= 9);
+      return `<button type="button" class="yr-it ${e.cls} ${long ? 'is-long' : ''} ${past ? 'is-past' : ''} ${e.date === today ? 'is-today' : ''}" data-k="${e.k}" ${e.attr} title="${wd(e.date)}, ${u.fmtDate(e.date)}${e.tip ? ' · ' + u.esc(e.tip) : ''}"><span class="yr-it-d">${Number(e.date.slice(8))}</span><span class="yr-it-t">${u.esc(e.text)}${e.sub ? `<small>${e.sub}</small>` : ''}</span></button>`;
+    };
+    const isPart = (sg) => sg.to !== (sg.m === 12 ? `${sg.y + 1}-01-01` : `${sg.y}-${pad(sg.m + 1)}-01`) || sg.from.slice(8) !== '01';
+    const itemsOf = (sg) => entries.filter((e) => e.date >= sg.from && e.date < sg.to);
+    const colsHtml = mob ? '' : cols.map((c) => `<div class="yr-mcol" style="left:${c.x0}px;width:${c.x1 - c.x0}px">${c.groups.map((sg) => {
+      const cur = nowIn && today >= sg.from && today < sg.to, part = isPart(sg);
+      return `<div class="yr-mgroup ${cur ? 'is-now' : ''} ${sg.to <= today ? 'is-past' : ''}"><div class="yr-mhead mono">${u.MONTHS[sg.m - 1].slice(0, 3).toUpperCase()}${sg.m === 1 || (sg === segs[0] && !part) ? ' ' + sg.y : ''}${part ? `<i>${sg === segs[0] ? 'з ' + Number(sg.from.slice(8)) : 'до ' + Number(u.addDays(sg.to, -1).slice(8))}</i>` : ''}</div>${itemsOf(sg).map(itemHtml).join('')}</div>`;
+    }).join('')}</div>`).join('');
+    // телефон: місяці списком — спершу поточний і наступні, минулі згорнуті внизу
+    const agGroup = (sg) => {
+      const its = itemsOf(sg), cur = nowIn && today >= sg.from && today < sg.to;
+      if (!its.length && !cur) return '';
+      return `<div class="yr-mgroup ${cur ? 'is-now' : ''}"><div class="yr-mhead mono">${u.MONTHS[sg.m - 1].toUpperCase()} ${sg.y}${cur ? ' · ЗАРАЗ' : ''}</div>${its.map(itemHtml).join('') || '<p class="yr-empty">Поки порожньо.</p>'}</div>`;
+    };
+    const agAhead = segs.filter((sg) => sg.to > today).map(agGroup).join('');
+    const agPast = segs.filter((sg) => sg.to <= today).map(agGroup).join('');
+    const agenda = !mob ? '' : `<div class="yr-agenda">${agAhead || '<p class="yr-empty">Попереду поки нічого. Тап по лінії або «+ Позначка».</p>'}${agPast ? `<details class="yr-past"><summary class="mono">РАНІШЕ ЦЬОГО РОКУ</summary>${agPast}</details>` : ''}</div>`;
 
     // --- лінія: пройдене суцільне, попереду — крапками
     const splitX = nowIn ? nowX : today >= to ? PADL + span : PADL;
@@ -185,32 +216,35 @@ window.LP = window.LP || {};
           <button type="button" class="sq-btn" data-yr="1" aria-label="Наступний рік">›</button>
           ${off ? '<button type="button" class="btn btn-sm" data-yr="0">ЦЕЙ РІК</button>' : ''}
           <span class="yr-spacer"></span>
+          <button type="button" class="btn btn-sm" data-add-mark>+ ПОЗНАЧКА</button>
           ${L.birthday
             ? `<button type="button" class="link-btn mono" data-bday>ДЕНЬ НАРОДЖЕННЯ ${u.fmtDate(L.birthday).toUpperCase()}${off === 0 ? ` · ЧЕРЕЗ ${bdLeft} ДН.` : ''}</button>`
             : '<button type="button" class="btn btn-primary" data-bday>ВКАЖИ СВІЙ ДЕНЬ НАРОДЖЕННЯ</button>'}
         </div>
         ${L.birthday ? '' : '<p class="hint yr-hint">Поки лінія — це календарний рік. З днем народження вона почнеться й закінчиться в нього.</p>'}
-        <div class="yr-scroll"><div class="yr-stage" style="height:${H}px;width:${W}px">
-          <svg class="yr-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
-            <rect class="yr-hit" x="${PADL - 8}" y="${LY - 26}" width="${span + 16}" height="52"/>
-            ${arcs}${months}${line}${dStems}${stems}${arcEnds}${now}
+        <div class="yr-scroll"><div class="yr-stage" style="height:${LY + 120}px;width:${W}px">
+          <svg class="yr-svg" width="${W}" height="${LY + 120}" viewBox="0 0 ${W} ${LY + 120}">
+            <rect class="yr-hit" x="${PADL - 8}" y="${LY - 22}" width="${span + 16}" height="36"/>
+            ${arcs}${ticks}${line}${dots}${arcEnds}${now}
             ${pending ? `<circle class="yr-pending" cx="${xOf(pending.date)}" cy="${LY}" r="6"/>` : ''}
             <path class="yr-temp" d="" hidden/>
-            <line class="yr-guide" x1="0" y1="${LY - 22}" x2="0" y2="${LY + 22}" hidden/>
+            <line class="yr-guide" x1="0" y1="${LY - 22}" x2="0" y2="${LY + 14}" hidden/>
           </svg>
-          ${arcLabels}${pointTags}${dTags}
-          ${nowIn ? `<span class="yr-now-label mono" style="left:${nowX}px;top:${LY + 12}px">ЗАРАЗ</span>` : ''}
+          ${arcLabels}
+          ${mob ? '' : `<div class="yr-months" style="top:${LY + 16}px">${colsHtml}</div>`}
+          ${nowIn ? `<span class="yr-now-label mono" style="left:${nowX}px;top:${LY - 30}px">ЗАРАЗ</span>` : ''}
           <span class="yr-tip mono" hidden></span>
           ${pending ? `
             <div class="yr-pop" style="left:${u.clamp(xOf(pending.date) - 130, 0, W - 270)}px;top:${LY + 22}px">
-              <div class="mono yr-pop-date">${u.fmtDate(pending.date).toUpperCase()}</div>
-              <input type="text" class="yr-pop-input" maxlength="60" placeholder="Що тут буде?" aria-label="Назва позначки">
+              <div class="yr-pop-day"><button type="button" class="sq-btn" data-pend-day="-1" aria-label="На день раніше">‹</button><span class="mono yr-pop-date">${wd(pending.date)}, ${u.fmtDate(pending.date).toUpperCase()}</span><button type="button" class="sq-btn" data-pend-day="1" aria-label="На день пізніше">›</button></div>
+              <input type="text" class="yr-pop-input" maxlength="60" placeholder="Що тут буде?" aria-label="Назва позначки" value="${u.esc(pending.title || '')}">
               <div class="yr-pop-row"><button type="button" class="btn btn-primary btn-sm" data-pend-save>ПОЗНАЧКА</button><button type="button" class="btn btn-sm" data-pend-cancel>✕</button></div>
               <p class="hint">Або клікни ще раз на лінії — вийде період.</p>
             </div>` : ''}
         </div>
         </div>
-        <p class="hint yr-legend">${mob ? 'Гортай лінію вбік. Тап по лінії — позначка, ще один тап — період. Тап по періоду — розписати, що в ньому.' : 'Клік по лінії — позначка, ще клік — період (або протягни). Точку й дугу можна тягати. Клік по періоду — розписати, що в ньому.'}</p>
+        ${agenda}
+        <p class="hint yr-legend">${mob ? 'Лінія — весь рік одним поглядом. Тап по ній — позначка (дату можна підправити стрілками), ще тап — період.' : 'Клік по лінії — позначка, ще клік — період (або протягни). Точку й дугу можна тягати — зміниться дата. Наведи на рядок — підсвітиться його точка.'}</p>
         <div class="yr-cols">
           <div class="yr-col">
             <div class="side-head"><span class="label">НАЙБЛИЖЧЕ</span><span class="mono muted">120 ДН.</span></div>
@@ -229,52 +263,28 @@ window.LP = window.LP || {};
 
     const stage = root.querySelector('.yr-stage');
     const svg = stage.querySelector('svg');
-    // --- розкладка підписів. Правило: якщо ніжка сусіда праворуч проходить крізь мій підпис,
-    // я стаю на рівень далі від лінії — тож ніжки ніколи не перетинають підписів.
-    const layout = (side, step, base, maxLv) => {
-      const els = Array.from(stage.querySelectorAll(`[data-side="${side}"]`)).map((el) => {
-        const x = Number(el.dataset.ax), w = el.offsetWidth, h = el.offsetHeight;
-        return { el, x, w, h, left: u.clamp(x, 2, Math.max(2, W - w - 2)), lv: 0 };
-      }).sort((a, b) => b.x - a.x);
-      const fixed = side === 'up' ? Array.from(stage.querySelectorAll('.yr-arc-tag')).map((el) => {
-        const cx = parseFloat(el.style.left), cy = parseFloat(el.style.top), w = el.offsetWidth, h = el.offsetHeight;
-        return { l: cx - w / 2 - 6, r: cx + w / 2 + 6, t: cy - h / 2 - 4, b: cy + h / 2 + 4 };
-      }) : [];
-      const placed = [];
-      const topOf = (it, lv) => (side === 'up' ? LY - base - it.h - lv * step : LY + base + lv * step);
-      els.forEach((it) => {
-        const L0 = it.left - 8, R0 = it.left + it.w + 8;
-        let lv = 0;
-        placed.forEach((p) => { if (p.x >= L0 && p.x <= R0) lv = Math.max(lv, p.lv + 1); });
-        const clash = (lv) => {
-          const t = topOf(it, lv), b = t + it.h;
-          return placed.some((p) => p.lv === lv && p.left < R0 && p.left + p.w > L0) || fixed.some((f) => f.l < R0 && f.r > L0 && f.t < b && f.b > t);
-        };
-        while (lv <= maxLv && clash(lv)) lv++;
-        // місця без перетину ніжок не лишилось — беремо будь-який вільний рівень (ніжка пройде за підписом)
-        if (lv > maxLv) { lv = 0; while (lv < maxLv && clash(lv)) lv++; }
-        it.lv = lv;
-        placed.push(it);
-        const top = topOf(it, it.lv);
-        it.el.style.left = it.left + 'px';
-        it.el.style.top = top + 'px';
-        const st = svg.querySelector(`[data-stem="${CSS.escape(it.el.dataset.key)}"]`);
-        if (st) st.setAttribute('y2', side === 'up' ? top + it.h : top);
-      });
-      return placed.reduce((m, p) => Math.max(m, p.lv), -1) + 1;
-    };
-    // телефон: лінія ширша за екран — гортається вбік, на старті показує «зараз»
-    const scroller = root.querySelector('.yr-scroll');
-    if (mob && scroller) {
-      const keep = LP.view.yearScroll;
-      scroller.scrollLeft = keep != null ? keep : Math.max(0, (nowIn ? nowX : 0) - scroller.clientWidth / 2);
-      scroller.addEventListener('scroll', () => { LP.view.yearScroll = scroller.scrollLeft; }, { passive: true });
-    }
-    layout('up', 40, 12, 5);
-    const downN = layout('down', 25, 30, 12);
-    H = LY + 30 + Math.max(downN, 2) * 25 + 14;
+    // колонки місяців: однакова висота (щоб розділювачі йшли до низу) і висота сцени під найдовшу
+    const mcols = Array.from(stage.querySelectorAll('.yr-mcol'));
+    const colH = mob ? 0 : Math.max(64, ...mcols.map((c) => c.offsetHeight));
+    mcols.forEach((c) => { c.style.height = colH + 'px'; });
+    const H = mob ? LY + (pending ? 150 : 22) : LY + 16 + colH + 6;
+    // підпис дуги не вилазить за край сцени
+    stage.querySelectorAll('.yr-arc-tag').forEach((el) => {
+      const half = el.offsetWidth / 2;
+      el.style.left = u.clamp(parseFloat(el.style.left), half + 2, W - half - 2) + 'px';
+    });
     stage.style.height = H + 'px';
     svg.setAttribute('height', H); svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    // точка на лінії ↔ рядок у колонці: наводиш на одне — підсвічується друге
+    let hot = null;
+    const setHot = (k) => {
+      if (k === hot) return;
+      if (hot) root.querySelectorAll(`[data-k="${CSS.escape(hot)}"]`).forEach((el) => el.classList.remove('is-hot'));
+      hot = k;
+      if (hot) root.querySelectorAll(`[data-k="${CSS.escape(hot)}"]`).forEach((el) => el.classList.add('is-hot'));
+    };
+    stage.addEventListener('pointerover', (e) => { const el = e.target.closest('[data-k]'); setHot(el ? el.dataset.k : null); });
+    stage.addEventListener('pointerleave', () => setHot(null));
     const guide = svg.querySelector('.yr-guide');
     const temp = svg.querySelector('.yr-temp');
     const tip = stage.querySelector('.yr-tip');
@@ -290,9 +300,9 @@ window.LP = window.LP || {};
       guide.hidden = false;
       guide.setAttribute('x1', x); guide.setAttribute('x2', x);
       tip.hidden = false;
-      tip.textContent = u.fmtDay(d).toUpperCase();
+      tip.textContent = wd(d) + ' ' + u.fmtDay(d).toUpperCase();
       tip.style.left = x + 'px';
-      tip.style.top = LY - 44 + 'px';
+      tip.style.top = LY - 46 + 'px';
     };
     hit.addEventListener('pointermove', (e) => showGuide(e.clientX));
     hit.addEventListener('pointerleave', () => { guide.hidden = true; tip.hidden = true; });
@@ -333,11 +343,6 @@ window.LP = window.LP || {};
     });
 
     // --- тягати: теги, дуги (за підпис чи кінці), позначки по лінії
-    const stemOf = (key) => svg.querySelector(`[data-stem="${CSS.escape(key)}"]`);
-    const setStem = (key, x1) => {
-      const st = stemOf(key);
-      if (st && x1 != null) { st.setAttribute('x1', x1); st.setAttribute('x2', x1); }
-    };
     const setArc = (id, a, w, h) => {
       svg.querySelector(`[data-arc="${id}"]`).setAttribute('d', arcD(a, w, h));
       const lab = stage.querySelector(`.yr-arc-tag[data-key="${id}"]`);
@@ -377,16 +382,12 @@ window.LP = window.LP || {};
         finish = () => { m.start = ds; m.end = de; };
       } else {
         const m = LP.lifeMark(pin.dataset.pin);
-        const tagEl = stage.querySelector(`.yr-point[data-key="m:${m.id}"]`);
         const dot = svg.querySelector(`[data-pindot="${m.id}"]`);
-        const x00 = xOf(m.start), l0 = parseFloat(tagEl.style.left);
         let d = m.start;
         apply = (mv) => {
           d = dateAt(mv.clientX);
           const nx = xOf(d);
           pin.setAttribute('cx', nx); dot.setAttribute('cx', nx);
-          tagEl.style.left = l0 + nx - x00 + 'px';
-          setStem('m:' + m.id, nx);
           showGuide(mv.clientX);
         };
         finish = () => { m.start = d; };
@@ -418,6 +419,15 @@ window.LP = window.LP || {};
         LP.save();
       };
       pop.querySelector('[data-pend-save]').addEventListener('click', save);
+      pop.querySelectorAll('[data-pend-day]').forEach((bt) => bt.addEventListener('click', () => {
+        const p = LP.view.yearPending;
+        const d = u.addDays(p.date, Number(bt.dataset.pendDay));
+        if (d < from || d >= to) return;
+        LP.view.yearPending = { date: d, title: pop.querySelector('input').value };
+        LP.render();
+        const inp = root.querySelector('.yr-pop-input');
+        if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+      }));
       pop.querySelector('[data-pend-cancel]').addEventListener('click', () => { LP.view.yearPending = null; LP.render(); });
       pop.querySelector('input').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') { e.preventDefault(); save(); }
@@ -443,6 +453,7 @@ window.LP = window.LP || {};
       const di = t.closest('[data-date-id]');
       if (di) return openDateForm(L.dates.find((d) => d.id === di.dataset.dateId));
       if (t.closest('[data-add-date]')) return openDateForm(null);
+      if (t.closest('[data-add-mark]')) return openMarkForm(null, today >= from && today < to ? today : from);
       if (t.closest('[data-bday]')) return openBirthdayForm();
     });
     root.querySelectorAll('[data-hol]').forEach((cb) => cb.addEventListener('change', () => {

@@ -257,7 +257,7 @@ window.LP = window.LP || {};
   }
 
   // ---------------- Бічна панель ----------------
-  function sideHtml(ws, stats, warnings) {
+  function sideHtml(ws, stats, warnings, skipNow) {
     const days = u.weekDays(ws);
     const today = u.today();
     const weekGoals = LP.weekGoalsOf(ws);
@@ -341,7 +341,7 @@ window.LP = window.LP || {};
     const usedCount = LP.data.rewards.length - rewards.length;
     const warnList = warnings.list;
     return `
-      ${nowNextHtml(ws)}
+      ${skipNow ? '' : nowNextHtml(ws)}
 
       ${warnList.length ? `
       <section class="side-block">
@@ -465,7 +465,7 @@ ${jBtn}</div>`;
       <div class="week-layout">
         <section class="cal">
           ${empty ? `<div class="cal-hint">Протягни мишкою по сітці, щоб додати справу — або <button type="button" class="link-btn" data-sample>завантаж приклад</button>.</div>` : ''}
-          ${mobile ? mobileHead : `<div class="cal-head" style="grid-template-columns:44px ${colTpl}"><div class="cal-corner"></div>${head}</div>`}
+          ${mobile ? mobileHead + nowNextHtml(ws) : `<div class="cal-head" style="grid-template-columns:44px ${colTpl}"><div class="cal-corner"></div>${head}</div>`}
           <div class="cal-body ${fits ? 'is-fit' : ''}">
             <div class="cal-inner" style="height:${(dayEnd - dayStart) * HOUR_PX}px">
               <div class="cal-times">${hours.map((h) => `<span style="top:${px(h * 60)}px">${String(h).padStart(2, '0')}</span>`).join('')}</div>
@@ -473,7 +473,7 @@ ${jBtn}</div>`;
             </div>
           </div>
         </section>
-        <aside class="side">${sideHtml(ws, stats, warnings)}</aside>
+        <aside class="side">${sideHtml(ws, stats, warnings, mobile)}</aside>
       </div>`;
 
     const body = root.querySelector('.cal-body');
