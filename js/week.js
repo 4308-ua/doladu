@@ -1,7 +1,7 @@
 // Тижневий розклад.
 // - протягни мишкою по порожньому місцю — нова справа; перетягни справу — перенести;
 //   потягни за нижній край — тривалість; квадратик у куті — виконано;
-// - задачу з беклогу (панель праворуч) можна перетягнути прямо в сітку.
+// - справу з беклогу (панель праворуч) можна перетягнути прямо в сітку.
 window.LP = window.LP || {};
 
 (function (LP) {
@@ -94,37 +94,37 @@ window.LP = window.LP || {};
     const el = LP.popover(btn, 'help-pop', (pop) => {
       pop.innerHTML = `
         <h3>ЯК ЧИТАТИ РОЗКЛАД</h3>
-        <div class="help-sec"><div class="label">ФОРМА — ЯКА ЦЕ ЗАДАЧА</div>
+        <div class="help-sec"><div class="label">ФОРМА ПОКАЗУЄ, ЯКА СПРАВА</div>
           <div class="help-shapes">
-            ${sample('good', '', 'ЧИТАТИ')}<span><b>Приємна</b> — мʼяко заокруглена. Бонус не потрібен.</span>
-            ${sample('mid', '', 'ПОШТА')}<span><b>Нейтральна</b> — хвиляста. Бонус за бажанням.</span>
-            ${sample('bad', '', 'ПОДАТКИ')}<span><b>Важка</b> — гостра пилка. Бонус обовʼязковий.</span>
+            ${sample('good', '', 'ЧИТАТИ')}<span><b>Приємна</b> має мʼякі кути. Бонус не потрібен.</span>
+            ${sample('mid', '', 'ПОШТА')}<span><b>Нейтральна</b> хвиляста. Бонус за бажанням.</span>
+            ${sample('bad', '', 'ПОДАТКИ')}<span><b>Важка</b> з гострими зубцями. Бонус обовʼязковий.</span>
           </div></div>
         <div class="help-sec"><div class="label">КОНТУР І СТАН</div>
           <div class="help-shapes">
-            ${sample('', 'thick', 'ЗАДАЧА')}<span><b>Товстий контур</b> — веде до цілі. Звичайний — без цілі.</span>
-            ${sample('', 'dash', 'ЗАДАЧА')}<span><b>Пунктир</b> — своя разова ціль.</span>
-            ${sample('', 'dots', 'ЗАДАЧА')}<span><b>Крапки</b> — звичка.</span>
-            ${sample('', 'done', 'ЗАДАЧА')}<span><b>Закреслено</b> — виконано.</span>
-            ${sample('', 'past', 'ЗАДАЧА')}<span><b>Сіре</b> — час минув.</span>
+            ${sample('', 'thick', 'СПРАВА')}<span><b>Товстий контур</b>: справа веде до цілі.</span>
+            ${sample('', 'dash', 'СПРАВА')}<span><b>Пунктир</b>: своя разова ціль.</span>
+            ${sample('', 'dots', 'СПРАВА')}<span><b>Крапки</b>: звичка.</span>
+            ${sample('', 'done', 'СПРАВА')}<span><b>Закреслено</b>: виконано.</span>
+            ${sample('', 'past', 'СПРАВА')}<span><b>Сіре</b>: час минув.</span>
           </div></div>
-        <div class="help-sec"><div class="label">МИШКОЮ</div><ul>
-          <li>Протягни по порожній сітці — нова справа. Просто клік — справа на годину.</li>
-          <li>Перетягни справу — інший день чи час. Нижній край — тривалість.</li>
-          <li>Квадратик у куті — виконано. Клік по справі — змінити.</li>
-          <li>Задачу з беклогу (праворуч унизу) тягни прямо в сітку. Довга ділиться на частини з перервами.</li>
+        <div class="help-sec"><div class="label">ЯК ДОДАТИ Й ЗМІНИТИ</div><ul>
+          <li>Протягни по порожній сітці, і зʼявиться нова справа. Один натиск створює справу на годину.</li>
+          <li>Перетягни справу, щоб змінити день чи час. Потягни за нижній край, щоб змінити тривалість.</li>
+          <li>Квадратик у куті позначає справу виконаною. Натисни на справу, щоб змінити її.</li>
+          <li>Справу з беклогу перетягни прямо в сітку. Довга справа поділиться на частини з перервами.</li>
+          <li><b>Ctrl+C</b> над справою копіює її, <b>Ctrl+V</b> над іншою клітинкою вставляє копію.</li>
+          <li>Ctrl+Z скасовує останню дію, Ctrl+Y повертає.</li>
         </ul></div>
         <div class="help-sec"><div class="label">ЩЕ</div><ul>
-          <li><b>«+ ЯК ТИ?»</b> у шапці сьогоднішнього дня — щоденник. Минулі дні лише читаються.</li>
-          <li><b>!</b> на справі — дві важкі задачі підряд (чи важка з нейтральною). Розбав їх приємною.</li>
-          <li>Виконав задачу з бонусом — бонус зʼявиться праворуч у «Заслужено ★».</li>
-          <li>Клік по датах тижня вгорі — календар тижнів. ← → на клавіатурі — сусідні тижні.</li>
-          <li>Чорні лінії — підйом і відбій; від них ніч мʼяко розсіюється. Тягни лінію — змінити цей день, клік — звичний час для всіх днів.</li>
-          <li>Робота з важкими задачами підряд: у справі — «Не попереджати про порядок», або в попередженні — «+ 15 хв приємного» (кава з колегами).</li>
-          <li><b>Ctrl+C</b> над справою — скопіювати; наведи на іншу клітинку й <b>Ctrl+V</b> — вставити туди копію.</li>
-          <li>Задача на кілька днів («Повторювати» → «Кожного дня» / «Вибрані дні»): кожен день можна змінювати окремо — у формі «Лише цей день» або «Усі дні серії».</li>
-          <li>Праворуч угорі — що зараз і що далі сьогодні (клік — відкрити справу). Цілі тижня тягни вгору-вниз — пріоритет і черговість; невиконані самі переходять на наступний тиждень. </li>
-          <li>Ctrl+Z — відкотити, Ctrl+Y — повернути.</li>
+          <li><b>«+ ЯК ТИ?»</b> у шапці сьогоднішнього дня відкриває щоденник. Минулі дні можна лише читати.</li>
+          <li><b>!</b> на справі означає, що дві важкі справи стоять підряд. Постав між ними щось приємне.</li>
+          <li>Якщо порядок змінити не можна (робота, обовʼязкове), увімкни у справі «Не попереджати про порядок».</li>
+          <li>Бонус за виконану справу зʼявляється праворуч у «Заслужено ★».</li>
+          <li>Натисни на дати тижня вгорі, щоб відкрити календар тижнів. Стрілки ← → на клавіатурі перемикають тиждень.</li>
+          <li>Чорні лінії показують підйом і відбій. Перетягни лінію, щоб змінити один день, або натисни на неї, щоб задати звичний час.</li>
+          <li>Справу, що повторюється, можна змінити лише на один день або на всі дні одразу.</li>
+          <li>Праворуч угорі видно, що зараз і що далі. Цілі тижня можна перетягувати, щоб розставити за важливістю. Невиконані самі переходять на наступний тиждень.</li>
         </ul></div>`;
     });
     if (el) btn.setAttribute('aria-expanded', 'true');
@@ -186,7 +186,7 @@ window.LP = window.LP || {};
     if (cut.added) hint += (hint ? ' · ' : '') + `+${cut.added} хв на їжу`;
     const tr = LP.travelOf(ev);
     if (tr.before || tr.after) hint += (hint ? ' · ' : '') + `Дорога: ${[tr.before ? `туди ${tr.before} хв` : '', tr.after ? `назад ${tr.after} хв` : ''].filter(Boolean).join(', ')}`;
-    if (warn) hint += ` · ${warn === 'bad' ? 'Дві важкі задачі підряд' : 'Важка й нейтральна підряд'} — розбав приємною`;
+    if (warn) hint += ` · ${warn === 'bad' ? 'Дві важкі справи підряд' : 'Важка й нейтральна підряд'} — розбав приємною`;
     const tagText = kind === 'habit' ? '↻' : tag ? `[${u.esc(tag)}]` : kind === 'custom' ? '[СВОЯ]' : '';
     const isWeekGoal = !!LP.weekGoalFor(ev.id, date);
     const today = u.today();
@@ -293,7 +293,7 @@ window.LP = window.LP || {};
             g.carried ? `↷ ПЕРЕНЕСЕНО${g.carried > 1 ? ' ×' + g.carried : ''}` : '',
           ].filter(Boolean).join(' · ');
           return `
-            <li class="wg-card ${done ? 'is-done' : ''}" data-wgid="${g.id}" title="Тягни — змінити порядок · клік — змінити">
+            <li class="wg-card ${done ? 'is-done' : ''}" data-wgid="${g.id}" title="Перетягни, щоб змінити порядок. Натисни, щоб змінити ціль">
               <span class="wg-num">${String(i + 1).padStart(2, '0')}</span>
               <button type="button" class="wg-check ${done ? 'on' : ''}" data-wg="${g.id}" aria-label="${done ? 'Зняти відмітку' : 'Виконано'}"></button>
               <div class="wg-body">
@@ -314,7 +314,7 @@ window.LP = window.LP || {};
           data-habit="${h.id}" data-date="${d}" ${lock ? 'disabled' : ''}
           title="${u.DAYS_LONG[i]}, ${u.fmtDay(d)}${h.timed ? ' — зараховується через розклад' : ''}" aria-label="${u.esc(h.title)}, ${u.DAYS_LONG[i]}"></button>`;
       }).join('');
-      return `<button type="button" class="hb-name" data-edit-habit="${h.id}" title="${h.timed ? 'З часом — через розклад' : 'Без часу — відмічай вручну'} · клік — змінити">${h.timed ? '⏱ ' : ''}${u.esc(h.title)}</button>${cells}<div class="hb-count ${cnt >= h.perWeek ? 'ok' : ''}">${cnt}/${h.perWeek}</div>`;
+      return `<button type="button" class="hb-name" data-edit-habit="${h.id}" title="${h.timed ? 'Зараховується через розклад' : 'Відмічається вручну'}. Натисни, щоб змінити">${h.timed ? '⏱ ' : ''}${u.esc(h.title)}</button>${cells}<div class="hb-count ${cnt >= h.perWeek ? 'ok' : ''}">${cnt}/${h.perWeek}</div>`;
     }).join('');
 
     const backlog = LP.looseBacklog();
@@ -324,12 +324,12 @@ window.LP = window.LP || {};
     const backlogHtml = plansHtml + (backlog.length
       ? backlog.slice().sort((a, b) => order[a.mood] - order[b.mood]).map((t) => {
           const g = t.goalId ? LP.goal(t.goalId) : null;
-          return `<li class="bl-item" data-task="${t.id}" title="Перетягни в розклад · клік — змінити">
+          return `<li class="bl-item" data-task="${t.id}" title="Перетягни в розклад. Натисни, щоб змінити">
             ${LP.moodDot(t.mood)}<span class="bl-title">${u.esc(t.title)}</span>
             <span class="tag">${u.fmtHours(t.duration).toUpperCase()}${g ? ' [' + u.esc(g.tag) + ']' : ''}${t.bonus ? ' ★' : ''}</span>
           </li>`;
         }).join('')
-      : plans.length ? '' : `<li class="empty-note">Порожньо. Задачі потрапляють сюди з «Дня».</li>`);
+      : plans.length ? '' : `<li class="empty-note">Поки порожньо. Справи потрапляють сюди з «Дня».</li>`);
 
     const rewards = LP.data.rewards.filter((r) => !r.used);
     const rewardsHtml = rewards.length
@@ -337,7 +337,7 @@ window.LP = window.LP || {};
           <button type="button" class="reward-use" data-use-reward="${r.id}" title="Позначити, що вже отримав" aria-label="Використав"></button>
           <span class="reward-text">${u.esc(r.text)}<small>за «${u.esc(r.source)}» · ${u.fmtDay(r.date)}</small></span>
         </li>`).join('')
-      : '<li class="empty-note">Тут зʼявляються бонуси за виконані важкі й нейтральні задачі.</li>';
+      : '<li class="empty-note">Тут зʼявляються бонуси за виконані важкі й нейтральні справи.</li>';
     const usedCount = LP.data.rewards.length - rewards.length;
     const warnList = warnings.list;
     return `
@@ -345,7 +345,7 @@ window.LP = window.LP || {};
 
       ${warnList.length ? `
       <section class="side-block">
-        <div class="label warn">ПОРЯДОК ЗАДАЧ</div>
+        <div class="label warn">ПОРЯДОК СПРАВ</div>
         <ul class="warn-list">${warnList.map((w) => `<li class="w-${w.level}"><span class="mono">${u.DAYS_SHORT[u.weekday(w.date)].toUpperCase()}</span> ${u.esc(w.a)} → ${u.esc(w.b)}
           <span class="warn-acts"><button type="button" class="link-btn" data-breather="${w.date}|${w.gapAt}">+ 15 ХВ ПРИЄМНОГО</button><button type="button" class="link-btn" data-nowarn="${w.bId}">ЦЕ НЕ ЗМІНИТИ</button></span></li>`).join('')}</ul>
       </section>` : ''}
@@ -359,7 +359,7 @@ window.LP = window.LP || {};
       </section>
       <section class="side-block">
         <div class="side-head"><span class="label">ЗВИЧКИ</span><button type="button" class="icon-btn" data-add-habit aria-label="Додати звичку" title="Нова звичка">+</button></div>
-        ${LP.data.habits.length ? `<div class="hb-grid">${habitRows}</div>` : '<p class="empty-note">Звичок поки немає — натисни +.</p>'}
+        ${LP.data.habits.length ? `<div class="hb-grid">${habitRows}</div>` : '<p class="empty-note">Звичок поки немає. Натисни +.</p>'}
       </section>
       <section class="side-block side-last">
         <div class="side-head"><span class="label">БЕКЛОГ — ПЕРЕТЯГНИ В РОЗКЛАД</span></div>
@@ -401,7 +401,7 @@ window.LP = window.LP || {};
       const isToday = d === today;
       const j = LP.journal(d);
       const action = isToday ? `data-journal="${d}"` : j && d < today ? `data-jread="${d}"` : 'disabled';
-      const tip = isToday ? (j ? 'Щоденник дня — змінити запис' : 'Щоденник дня — як ти?') : j ? 'Прочитати запис дня' : '';
+      const tip = isToday ? (j ? 'Змінити запис у щоденнику' : 'Записати в щоденник, як ти') : j ? 'Прочитати запис дня' : '';
       return `<button type="button" class="dayhead ${isToday ? 'is-today' : ''} ${d < today ? 'is-past' : ''} ${i >= 5 ? 'weekend' : ''}" ${action} ${tip ? `title="${tip}"` : ''}>
         <span class="dh-label">${u.DAYS_SHORT[i].toUpperCase()} ${u.parse(d).getDate()}${isToday ? ' · СЬОГОДНІ' : ''}</span>
         <span class="dh-right">
@@ -437,10 +437,10 @@ ${jBtn}</div>`;
         const m = n.getHours() * 60 + n.getMinutes();
         if (m >= dayStart * 60 && m <= dayEnd * 60) nowLine = `<div class="now-line" style="top:${px(m)}px"></div>`;
       }
-      // прийоми їжі — тиха смуга під задачами
+      // прийоми їжі — тиха смуга під справами
       const meals = LP.mealsOn(d).filter((m) => m.start < dayEnd * 60 && m.start + m.duration > dayStart * 60).map((m) => {
         const ms = Math.max(m.start, dayStart * 60), me = Math.min(m.start + m.duration, dayEnd * 60);
-        return `<div class="meal" data-meal="${m.id}" style="top:${px(ms)}px;height:${Math.max(((me - ms) / 60) * HOUR_PX, 8)}px" title="${u.esc(m.name)} · ${u.fmtTime(m.start)}—${u.fmtTime(m.start + m.duration)} · тягни — перенести, клік — змінити"><span>${u.esc(m.name.toUpperCase())} ${u.fmtTime(m.start)}—${u.fmtTime(m.start + m.duration)}</span><i class="meal-resize"></i></div>`;
+        return `<div class="meal" data-meal="${m.id}" style="top:${px(ms)}px;height:${Math.max(((me - ms) / 60) * HOUR_PX, 8)}px" title="${u.esc(m.name)} · ${u.fmtTime(m.start)}—${u.fmtTime(m.start + m.duration)} · перетягни, щоб перенести; натисни, щоб змінити"><span>${u.esc(m.name.toUpperCase())} ${u.fmtTime(m.start)}—${u.fmtTime(m.start + m.duration)}</span><i class="meal-resize"></i></div>`;
       }).join('');
       // сон: межа підйому й відбою, від неї — мʼяке розсіювання в ніч
       let night = '';
@@ -450,11 +450,11 @@ ${jBtn}</div>`;
         const hTxt = (Math.round(hrs * 10) / 10).toString().replace('.', ',');
         if (sl.wake > dayStart * 60 && sl.wake < dayEnd * 60) {
           night += `<div class="night night-am" style="height:${px(sl.wake)}px"></div>
-            <div class="sleep-line is-wake ${sl.custom ? 'is-custom' : ''}" data-sleep="wake" style="top:${px(sl.wake)}px" title="Підйом ${u.fmtTime(sl.wake)} · сон ${hTxt} год · тягни — змінити цей день, клік — налаштувати"></div>`;
+            <div class="sleep-line is-wake ${sl.custom ? 'is-custom' : ''}" data-sleep="wake" style="top:${px(sl.wake)}px" title="Підйом ${u.fmtTime(sl.wake)} · сон ${hTxt} год · перетягни, щоб змінити цей день; натисни, щоб налаштувати"></div>`;
         }
         if (sl.bed > dayStart * 60 && sl.bed < dayEnd * 60) {
           night += `<div class="night night-pm" style="top:${px(sl.bed)}px"></div>
-            <div class="sleep-line is-bed ${sl.custom ? 'is-custom' : ''}" data-sleep="bed" style="top:${px(sl.bed)}px" title="Відбій ${u.fmtTime(sl.bed)} · тягни — змінити цей день, клік — налаштувати"></div>`;
+            <div class="sleep-line is-bed ${sl.custom ? 'is-custom' : ''}" data-sleep="bed" style="top:${px(sl.bed)}px" title="Відбій ${u.fmtTime(sl.bed)} · перетягни, щоб змінити цей день; натисни, щоб налаштувати"></div>`;
         }
       }
       return `<div class="cal-col ${d === today ? 'is-today' : ''} ${d < today ? 'is-past' : ''} ${i >= 5 ? 'weekend' : ''}" data-date="${d}">${night}${meals}${items.map((it) => eventHtml(it, warnings)).join('')}${nowLine}</div>`;
@@ -464,7 +464,7 @@ ${jBtn}</div>`;
     root.innerHTML = `
       <div class="week-layout">
         <section class="cal">
-          ${empty ? `<div class="cal-hint">Протягни мишкою по сітці, щоб додати справу — або <button type="button" class="link-btn" data-sample>завантаж приклад</button>.</div>` : ''}
+          ${empty ? `<div class="cal-hint">Протягни по сітці, щоб додати справу, або <button type="button" class="link-btn" data-sample>завантаж приклад</button>.</div>` : ''}
           ${mobile ? mobileHead + nowNextHtml(ws) : `<div class="cal-head" style="grid-template-columns:44px ${colTpl}"><div class="cal-corner"></div>${head}</div>`}
           <div class="cal-body ${fits ? 'is-fit' : ''}">
             <div class="cal-inner" style="height:${(dayEnd - dayStart) * HOUR_PX}px">
@@ -557,7 +557,7 @@ ${jBtn}</div>`;
       LP.modal({
         title: 'Фокус тижня',
         body: `<label class="field"><span>Що для тебе головне цього тижня</span><input type="text" name="focus" maxlength="140" value="${u.esc(cur)}" placeholder="Наприклад: дописати трек і не перепрацювати"></label>
-          <p class="hint">Не план і не відсоток — орієнтир, до якого повертаєшся, коли щось іде не так.</p>`,
+          <p class="hint">Це не план і не відсоток. Це орієнтир, до якого повертаєшся, коли щось іде не так.</p>`,
         onSubmit: (form) => {
           LP.data.weekNotes = LP.data.weekNotes || {};
           const v = form.focus.value.trim();
@@ -822,7 +822,7 @@ ${jBtn}</div>`;
       );
     }
 
-    // Перетягування задачі з беклогу в сітку
+    // Перетягування справи з беклогу в сітку
     // Цілий план із беклогу — у день, у тому ж порядку й з тими ж перервами
     root.querySelectorAll('[data-plan-drag]').forEach((head) => {
       head.addEventListener('pointerdown', (e) => {
@@ -929,7 +929,7 @@ ${jBtn}</div>`;
             <label><input type="radio" name="scope" value="day" checked><span>Лише ${u.fmtDay(date)}</span></label>
             <label><input type="radio" name="scope" value="all"><span>Звично для всіх днів</span></label>
           </div></div>
-        <p class="hint">Сон цієї ночі: ${(Math.round(LP.sleepHours(date) * 10) / 10).toString().replace('.', ',')} год. Межу можна просто тягнути мишкою в розкладі.</p>`,
+        <p class="hint">Сон цієї ночі: ${(Math.round(LP.sleepHours(date) * 10) / 10).toString().replace('.', ',')} год. Межу можна перетягнути просто в розкладі.</p>`,
       extra: sl.custom ? [{ text: 'Як звично', onClick: () => LP.setSleep(date, { wake: null, bed: null }) }] : [],
       onSubmit: (form) => {
         const wake = parseInt(form.wake.value, 10), bed = parseInt(form.bed.value, 10);
@@ -978,7 +978,7 @@ ${jBtn}</div>`;
       : Object.assign({}, ev, { date: occDate });
     const wg = isNew ? null : LP.weekGoalFor(ev.id, occDate);
     const backlog = LP.backlog();
-    // дні тижня, в які вже стоїть ця серія (для задачі, розставленої на кілька днів)
+    // дні тижня, в які вже стоїть ця серія (для справи, розставленої на кілька днів)
     const siblings = isNew ? [] : LP.eventGroup(ev, occDate);
     const trF = LP.travelOf(d);
     const trDir = trF.before && trF.after ? 'both' : trF.before ? 'before' : trF.after ? 'after' : 'both';
@@ -987,13 +987,13 @@ ${jBtn}</div>`;
 
     const body = `
       ${isNew && backlog.length ? `
-        <label class="field"><span>Взяти задачу з беклогу</span>
+        <label class="field"><span>Взяти справу з беклогу</span>
           <select name="task"><option value="">— нова справа —</option>
             ${backlog.map((t) => `<option value="${t.id}">${t.mood === 'bad' ? '● ' : t.mood === 'good' ? '○ ' : '◐ '}${u.esc(t.title)} · ${u.fmtHours(t.duration)}</option>`).join('')}
           </select></label>` : ''}
       <label class="field"><span>Що робиш</span>
         <input type="text" name="title" maxlength="120" value="${u.esc(d.title)}" placeholder="Наприклад: пробіжка 5 км"></label>
-      <div class="field"><span>Як тобі ця задача</span>${LP.moodPicker(d.mood)}</div>
+      <div class="field"><span>Як тобі ця справа</span>${LP.moodPicker(d.mood)}</div>
       ${LP.bonusField(d.bonus)}
       <label class="field"><span>До чого веде</span>${linkSelectHtml(linkValue(d))}</label>
       <label class="field field-sub"><span>Підціль</span><div class="sub-slot"></div></label>
@@ -1042,7 +1042,7 @@ ${jBtn}</div>`;
         ${!isNew ? `<label class="check"><input type="checkbox" name="done" ${ev.doneDates.includes(occDate) ? 'checked' : ''}> Виконано</label>` : ''}
       </div>
       <label class="field"><span>Нотатка</span><textarea name="note" rows="2">${u.esc(d.note || '')}</textarea></label>
-      ${!isNew && ev.repeat === 'weekly' ? `<p class="hint">Зміни діятимуть з цього тижня; минулі тижні лишаться як були. Кожен день серії можна змінювати окремо.</p>` : ''}`;
+      ${!isNew && ev.repeat === 'weekly' ? `<p class="hint">Зміни діятимуть із цього тижня, минулі тижні лишаться як були. Кожен день можна змінити окремо.</p>` : ''}`;
 
     const extra = [];
     if (!isNew) {
@@ -1133,7 +1133,7 @@ ${jBtn}</div>`;
         if (!title) errors.push('Напиши, що робиш.');
         if (!form.date.value) errors.push('Обери день.');
         if (e <= s) errors.push('Кінець має бути пізніше за початок.');
-        if (LP.bonusRequired(mood) && !bonus) errors.push('Важка задача потребує бонусу — придумай, що отримаєш після виконання.');
+        if (LP.bonusRequired(mood) && !bonus) errors.push('Важкій справі потрібен бонус. Придумай, що отримаєш після виконання.');
         const link = { goalId: null, subgoalId: null, customGoal: '', habitId: null };
         if (v.startsWith('g:')) {
           link.goalId = v.slice(2);

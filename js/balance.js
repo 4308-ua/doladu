@@ -71,20 +71,20 @@ window.LP = window.LP || {};
 
   function dipsHtml() {
     const rated = LP.data.balance.areas.filter((a) => LP.areaScore(a.id) > 0).sort((a, b) => LP.areaScore(a.id) - LP.areaScore(b.id));
-    if (!rated.length) return '<p class="empty-note">Постав оцінки 1–10: клікни по колесу або по шкалі.</p>';
+    if (!rated.length) return '<p class="empty-note">Постав оцінки від 1 до 10. Натисни на колесо або на шкалу.</p>';
     const T = target();
     const below = rated.filter((a) => LP.areaScore(a.id) < T);
     const deep = rated.filter((a) => LP.areaScore(a.id) <= T - 3);
     const vals = rated.map((a) => LP.areaScore(a.id));
     const lo = Math.min(...vals), hi = Math.max(...vals);
-    const verdict = deep.length >= 3 ? `Просіли одразу ${deep.length} сфери — не тягни всі. Обери одну й почни з маленького кроку.`
-      : !below.length ? (hi - lo <= 2 ? 'Усе на рівні й рівно — так і тримай.' : 'Усе на рівні або вище. Не женися за десятками — краще тримати рівновагу.')
-      : below.length === 1 ? 'Одна сфера нижче рівня — на ній і фокус цього тижня.'
-      : 'Кілька сфер нижче рівня. Почни з найнижчої — або з тієї, де крок найлегший.';
+    const verdict = deep.length >= 3 ? `Просіли одразу ${deep.length} сфери. Не берися за всі, обери одну й почни з малого кроку.`
+      : !below.length ? (hi - lo <= 2 ? 'Усе на рівні й без перекосів. Так тримати.' : 'Усе на рівні або вище. За десятками гнатися не треба, важливіша рівновага.')
+      : below.length === 1 ? 'Одна сфера нижче рівня. Цього тижня варто зосередитись на ній.'
+      : 'Кілька сфер нижче рівня. Почни з найнижчої або з тієї, де крок найлегший.';
     return `
       <div class="lvl-row"><span class="mono">РІВЕНЬ, ДО ЯКОГО ПРАГНУ</span>
         <span class="lvl-ctl"><button type="button" class="mini-btn" data-lvl="-1" aria-label="Нижче">−</button><b>${T}</b><button type="button" class="mini-btn" data-lvl="1" aria-label="Вище">+</button></span></div>
-      <p class="hint lvl-why">Не 10: усе на максимумі не буває — щось завжди просідає. Краще рівно на ${T}, ніж 10 в одній сфері й 3 в іншій.</p>
+      <p class="hint lvl-why">Усе на 10 не буває, щось завжди просідає. Краще рівно на ${T}, ніж 10 в одній сфері й 3 в іншій.</p>
       <div class="mono">СЕРЕДНЯ ${(vals.reduce((x, v) => x + v, 0) / vals.length).toFixed(1).replace('.', ',')} · РОЗКИД ${lo}–${hi} · НИЖЧЕ РІВНЯ ${below.length} ІЗ ${rated.length}</div>
       <p class="lvl-verdict ${deep.length >= 3 ? 'warn' : ''}">${verdict}</p>
       ${below.length ? `<ol class="dips">${below.map((a) => {
@@ -122,7 +122,7 @@ window.LP = window.LP || {};
     const avgTrend = all.map((x) => avg(x.scores)).concat([avg(LP.data.balance.current)]).filter((v) => v !== null);
     return `
       <table class="history">
-        <thead><tr><th>НАПРЯМ</th><th>ТЕНДЕНЦІЯ</th>${cols.map((c) => `<th>${c.label}${c.id ? ` <button type="button" class="icon-btn small" data-del-snap="${c.id}" aria-label="Видалити оцінку ${c.label}">✕</button>` : ''}</th>`).join('')}</tr></thead>
+        <thead><tr><th>СФЕРА</th><th>ТЕНДЕНЦІЯ</th>${cols.map((c) => `<th>${c.label}${c.id ? ` <button type="button" class="icon-btn small" data-del-snap="${c.id}" aria-label="Видалити оцінку ${c.label}">✕</button>` : ''}</th>`).join('')}</tr></thead>
         <tbody>
           ${LP.data.balance.areas.map((a) => `<tr><td class="area-name">${u.esc(a.name)}</td><td>${spark(trend(a), sparkW)}</td>${cols.map((c, i) => cell(c.scores[a.id], i ? cols[i - 1].scores[a.id] : undefined)).join('')}</tr>`).join('')}
           <tr class="avg-row"><td>СЕРЕДНЄ</td><td>${spark(avgTrend, sparkW)}</td>${cols.map((c) => {
@@ -145,7 +145,7 @@ window.LP = window.LP || {};
         </div>
         ${open ? (snaps.length
           ? `<div class="table-scroll">${historyTable(10, 96)}</div>`
-          : '<p class="empty-note">Історії ще немає. Змінюй оцінки — зріз за день зберігається сам, і з часом побачиш, як змінюється баланс.</p>') : ''}
+          : '<p class="empty-note">Історії ще немає. Оцінки за день зберігаються самі, і з часом тут буде видно, як змінюється баланс.</p>') : ''}
       </div>`;
   }
 
@@ -178,7 +178,7 @@ window.LP = window.LP || {};
     const quads = `<div class="rel-quads">${Q.map((q) => {
       const ps = LP.data.people.filter(q.f).sort((a, b) => Math.abs(b.y - 0.5) - Math.abs(a.y - 0.5));
       return `<div class="rq ${q.c}"><div class="rq-head"><b>${q.t}</b><span class="mono">${q.s} · ${ps.length}</span></div><div class="rq-chips">${ps.map((p) => `<button type="button" class="rq-chip ${p.ok ? '' : 'wants-change'}" data-person-open="${p.id}">${u.esc(p.name)}${p.ok ? '' : '<i>хочу змінити</i>'}</button>`).join('') || '<span class="rq-none">—</span>'}</div></div>`;
-    }).join('')}</div>${LP.data.people.length ? '<p class="hint rq-hint">Тап по імені — змінити, перенести в інший квадрант або видалити.</p>' : ''}`;
+    }).join('')}</div>${LP.data.people.length ? '<p class="hint rq-hint">Натисни на імʼя, щоб змінити, перенести в інший квадрант або видалити.</p>' : ''}`;
     return `${quads}
       <div class="rel-map">
         <div class="quad quad-bad"></div>
@@ -213,7 +213,7 @@ window.LP = window.LP || {};
   // ---------------- Соціальна обсерваторія ----------------
   function supportHtml() {
     const people = LP.data.people;
-    if (!people.length) return '<p class="empty-note">Люди зʼявляться тут автоматично, щойно додаси їх на карту стосунків.</p>';
+    if (!people.length) return '<p class="empty-note">Люди зʼявляться тут, щойно додаси їх на карту стосунків.</p>';
     const sym = { '+': '+', '-': '−', '±': '±' };
     return `
       <div class="table-scroll"><table class="support">
@@ -247,7 +247,7 @@ window.LP = window.LP || {};
             }).join('')}</div>
           </div>`;
         }).join('')}
-        <p class="hint">Тап по виду підтримки: + підтримує → − ні → ± буває по-різному → порожньо.</p>
+        <p class="hint">Натискай на вид підтримки: «+» підтримує, «−» ні, «±» буває по-різному.</p>
         <details class="sp-kinds"><summary class="mono">ЩО ОЗНАЧАЄ КОЖЕН ВИД</summary>${LP.SUPPORT.map((k) => `<p><b>${k.short}.</b> ${k.q}</p>`).join('')}</details>
       </div>`;
   }
@@ -259,8 +259,8 @@ window.LP = window.LP || {};
         <section>
           <div class="section-head">
             <h2>КОЛЕСО БАЛАНСУ</h2>
-            <button type="button" class="btn" data-areas>НАПРЯМИ</button>
-            <span class="mono muted snap-auto">${LP.data.balance.snapshots.some((x) => x.date === u.today()) ? 'ЗРІЗ ЗА СЬОГОДНІ ЗБЕРЕЖЕНО АВТОМАТИЧНО · ЗАВТРА ПОЧНЕТЬСЯ НОВИЙ' : 'ЗМІНИ ОЦІНКУ — І ЗРІЗ ЗА СЬОГОДНІ ЗБЕРЕЖЕТЬСЯ САМ'}</span>
+            <button type="button" class="btn" data-areas>СФЕРИ</button>
+            <span class="mono muted snap-auto">${LP.data.balance.snapshots.some((x) => x.date === u.today()) ? 'ОЦІНКИ ЗА СЬОГОДНІ ЗБЕРЕЖЕНО' : 'ОЦІНКИ ЗБЕРІГАЮТЬСЯ САМІ'}</span>
           </div>
           <div class="balance-grid">
             <div class="wheel-wrap">${wheelSvg()}</div>
@@ -306,9 +306,9 @@ window.LP = window.LP || {};
       submitText: 'Зберегти',
       body: `
         <div class="field"><span>Оцінка зараз · рівень ${target()}</span><div class="sc-row an-scale">${cells}<b class="an-val">${score || '—'}</b></div></div>
-        <label class="field"><span>Що я вже роблю — тримає цю сферу</span><textarea name="doing" rows="3" maxlength="600" placeholder="Бігаю двічі на тиждень, лягаю до 23:30…">${u.esc(nt.doing)}</textarea></label>
-        <label class="field"><span>Що змінити або почати — щоб підняти оцінку</span><textarea name="change" rows="3" maxlength="600" placeholder="Менше телефону перед сном, раз на тиждень дзвонити батькам…">${u.esc(nt.change)}</textarea></label>
-        <p class="hint">Пиши конкретно й маленькими кроками. Якщо крок можна запланувати — додай його справою на «Тиждень».</p>`,
+        <label class="field"><span>Що я вже роблю для цієї сфери</span><textarea name="doing" rows="3" maxlength="600" placeholder="Бігаю двічі на тиждень, лягаю до 23:30…">${u.esc(nt.doing)}</textarea></label>
+        <label class="field"><span>Що змінити або почати, щоб підняти оцінку</span><textarea name="change" rows="3" maxlength="600" placeholder="Менше телефону перед сном, раз на тиждень дзвонити батькам…">${u.esc(nt.change)}</textarea></label>
+        <p class="hint">Пиши конкретно й малими кроками. Якщо крок можна запланувати, додай його справою на «Тиждень».</p>`,
       onOpen: (form) => {
         let v = score;
         form.querySelectorAll('.an-scale .sc').forEach((b) => b.addEventListener('click', () => {
@@ -419,15 +419,15 @@ window.LP = window.LP || {};
   function openAreasForm() {
     const areas = LP.data.balance.areas;
     LP.modal({
-      title: 'Напрями життя',
+      title: 'Сфери життя',
       body: `
-        <label class="field"><span>Один напрям на рядок (від 3 до 12)</span>
+        <label class="field"><span>Одна сфера на рядок, від 3 до 12</span>
           <textarea name="areas" rows="10">${areas.map((a) => u.esc(a.name)).join('\n')}</textarea></label>
-        <p class="hint">Оцінки й історія збережуться для напрямів, назва яких не змінилась.</p>`,
+        <p class="hint">Оцінки й історія збережуться для сфер, назви яких не змінились.</p>`,
       onSubmit: (form) => {
         const names = form.areas.value.split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 12);
         if (names.length < 3) {
-          LP.showErrors(form, ['Потрібно щонайменше 3 напрями.']);
+          LP.showErrors(form, ['Потрібно щонайменше 3 сфери.']);
           return false;
         }
         LP.data.balance.areas = names.map((name) => areas.find((a) => a.name === name) || { id: u.uid(), name });

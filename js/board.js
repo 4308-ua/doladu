@@ -1,8 +1,8 @@
 // Дошка — помічник планування.
-// Форма картки показує, яка це задача: важка — гостра зірка, нейтральна — хвиляста, приємна — овал.
+// Форма картки показує, яка це справа: важка — гостра зірка, нейтральна — хвиляста, приємна — овал.
 // Картки можна зʼєднувати стрілками (тягни кружечок на краю картки до іншої) — виходить ланцюжок із часом:
-// на початку стрілки — коли закінчується попередня задача, на кінці — коли починається наступна.
-// Після довгої задачі (від 45 хв) у стрілку додається перерва; після важкої чи нейтральної — її бонус.
+// на початку стрілки — коли закінчується попередня справа, на кінці — коли починається наступна.
+// Після довгої справи (від 45 хв) у стрілку додається перерва; після важкої чи нейтральної — її бонус.
 // Готовий ланцюжок одним кліком іде в розклад на обраний день.
 window.LP = window.LP || {};
 
@@ -71,7 +71,7 @@ window.LP = window.LP || {};
     if (g) meta.push(`[${g.tag}]`);
     return `
       <div class="scard mood-card-${t.mood}" data-task="${t.id}" style="left:${x}px;top:${y}px" tabindex="0"
-           title="${u.esc(t.title)} — ${LP.MOODS[t.mood]}${t.bonus ? ' · бонус: ' + u.esc(t.bonus) : ''} · клік — змінити, видалити або в беклог">
+           title="${u.esc(t.title)} — ${LP.MOODS[t.mood]}${t.bonus ? ' · бонус: ' + u.esc(t.bonus) : ''} · натисни, щоб змінити, видалити або відправити в беклог">
         <svg class="scard-shape" viewBox="0 0 ${CW} ${CH}" aria-hidden="true"><path d="${shapePath(t.mood)}" fill="${TINT[t.mood]}"/></svg>
         <div class="scard-body">
           <div class="scard-title">${u.esc(t.title)}</div>
@@ -79,21 +79,21 @@ window.LP = window.LP || {};
         </div>
         ${tm && tm.first ? `<button type="button" class="start-chip" data-start="${t.id}" title="Час початку ланцюжка">▶ ${u.fmtTime(tm.start)}</button>` : ''}
         ${tm && tm.first ? `<button type="button" class="to-week" data-chain="${t.id}" title="Поставити весь ланцюжок у розклад">У РОЗКЛАД →</button>` : ''}
-        <span class="connector" data-connect="${t.id}" title="Потягни до іншої картки, щоб зʼєднати стрілкою"></span>
+        <span class="connector" data-connect="${t.id}" title="Перетягни до іншої картки, щоб зʼєднати стрілкою"></span>
       </div>`;
   }
 
   // План: розкладена дошка в тому ж порядку, з часом і перервами
   LP.planHtml = function (plan, dragTag) {
     const rows = plan.items.map((it, k) => `
-      <li class="pl-row ${dragTag ? 'bl-item' : ''}" data-task="${it.task.id}" ${dragTag ? 'title="Перетягни лише цю задачу · клік — змінити"' : ''}>
+      <li class="pl-row ${dragTag ? 'bl-item' : ''}" data-task="${it.task.id}" ${dragTag ? 'title="Перетягни лише цю справу. Натисни, щоб змінити"' : ''}>
         <span class="mono pl-time">${u.fmtTime(it.start)}</span>${LP.moodDot(it.task.mood)}<span class="pl-title" ${dragTag ? '' : `data-edit="${it.task.id}"`}>${u.esc(it.task.title)}</span>
         <span class="tag">${u.fmtHours(it.end - it.start).toUpperCase()}${it.task.bonus ? ' ★' : ''}</span>
       </li>${k < plan.items.length - 1 && it.gap ? `<li class="pl-gap mono">перерва ${it.gap} хв</li>` : ''}`).join('');
     return `<div class="bl-plan" data-plan="${plan.id}">
-      <div class="pl-head" ${dragTag ? 'data-plan-drag="' + plan.id + '" title="Перетягни в день — стане весь план з тим самим порядком і перервами"' : ''}>
+      <div class="pl-head" ${dragTag ? 'data-plan-drag="' + plan.id + '" title="Перетягни в день, і весь план стане туди з тим самим порядком і перервами"' : ''}>
         <span class="label">ПЛАН · ${u.fmtTime(plan.start)}—${u.fmtTime(plan.end)}</span>
-        <span class="mono muted">${plan.items.length} ЗАДАЧ${plan.items.length < 5 ? 'І' : ''}</span>
+        <span class="mono muted">${plan.items.length} СПРАВ${plan.items.length < 5 ? 'І' : ''}</span>
         ${dragTag ? '<span class="pl-grip mono">⠿ ТЯГНИ</span>' : `<button type="button" class="icon-btn small" data-plan-board="${plan.id}" title="Повернути план на дошку" aria-label="Повернути план на дошку">↩</button>`}
       </div>
       <ol class="pl-list">${rows}</ol>
@@ -103,7 +103,7 @@ window.LP = window.LP || {};
   function backlogHtml() {
     const list = LP.looseBacklog();
     const plans = LP.backlogPlans();
-    if (!list.length && !plans.length) return '<p class="empty-note">Порожньо. Розклади дошку й натисни «Усе в беклог →» — або відкрий картку й «В беклог →».</p>';
+    if (!list.length && !plans.length) return '<p class="empty-note">Поки порожньо. Натисни «Усе в беклог →» або відправ сюди окрему картку.</p>';
     return plans.map((p) => LP.planHtml(p, false)).join('') + ORDER.map((m) => {
       const items = list.filter((t) => t.mood === m);
       if (!items.length) return '';
@@ -131,20 +131,20 @@ window.LP = window.LP || {};
       <div class="board-page">
         <div class="board-main">
           <form class="composer" autocomplete="off">
-            <input type="text" name="title" maxlength="120" placeholder="Що хочеш зробити? Enter — на дошку">
+            <input type="text" name="title" maxlength="120" placeholder="Що хочеш зробити? Enter кладе на дошку">
             <div class="composer-moods">
               ${ORDER.map((m) => `<button type="button" class="btn mood-btn ${m === lastMood ? 'on' : ''}" data-mood="${m}">${LP.moodDot(m)} ${LP.MOODS[m].toUpperCase()}</button>`).join('')}
             </div>
             <button type="button" class="btn" data-group ${onBoard.length ? '' : 'disabled'}>ЗГРУПУВАТИ</button>
-            <button type="button" class="btn btn-primary" data-all-backlog ${onBoard.length ? '' : 'disabled'} title="Усі картки — у беклог; ланцюжки — планами в тому ж порядку, з часом і перервами">УСЕ В БЕКЛОГ →</button>
+            <button type="button" class="btn btn-primary" data-all-backlog ${onBoard.length ? '' : 'disabled'} title="Відправити всі картки в беклог. Ланцюжки стануть планами з тим самим порядком і перервами">УСЕ В БЕКЛОГ →</button>
           </form>
-          <div class="canvas" aria-label="Дошка задач">
+          <div class="canvas" aria-label="Дошка справ">
             <div class="world" style="transform:translate(${v.x}px,${v.y}px) scale(${v.z})">
               <svg class="links" aria-hidden="true"></svg>
               ${onBoard.map((t) => cardHtml(t, times)).join('')}
               <div class="link-labels"></div>
             </div>
-            ${!onBoard.length ? '<p class="canvas-empty">Полотно порожнє. Пиши все підряд — великі й дрібні справи, приємні й ті, що відкладаєш.</p>' : ''}
+            ${!onBoard.length ? '<p class="canvas-empty">Дошка порожня. Випиши все підряд: великі й дрібні справи, приємні й ті, що відкладаєш.</p>' : ''}
             <div class="zoom-ctl mono">
               <button type="button" data-zoom="-1" title="Віддалити (Ctrl + коліщатко)" aria-label="Віддалити">−</button>
               <button type="button" data-zoom="0" title="Масштаб 100%" class="zoom-val">${Math.round(v.z * 100)}%</button>
@@ -204,9 +204,9 @@ window.LP = window.LP || {};
         ${bonus ? `<span class="lt-bonus" title="Бонус за «${u.esc(a.title)}»">★ ${u.esc(a.bonus)}</span>` : ''}
         <span class="lt-row">
           ${ta ? `<span class="lt" title="Кінець «${u.esc(a.title)}»">${u.fmtTime(ta.end)}</span>` : ''}
-          <button type="button" class="lt-break ${l.gap ? 'on' : needBreak ? 'suggest' : ''}" data-gap="${l.id}" title="Перерва між задачами — клік змінює: 0 / 5 / 10 / 15 хв">${l.gap ? `☕ ${l.gap} ХВ` : needBreak ? '+ ПЕРЕРВА' : '+'}</button>
+          <button type="button" class="lt-break ${l.gap ? 'on' : needBreak ? 'suggest' : ''}" data-gap="${l.id}" title="Перерва між справами. Натисни, щоб змінити: 0, 5, 10 або 15 хв">${l.gap ? `☕ ${l.gap} ХВ` : needBreak ? '+ ПЕРЕРВА' : '+'}</button>
           ${tb && l.gap ? `<span class="lt lt-end" title="Початок «${u.esc(b.title)}»">${u.fmtTime(tb.start)}</span>` : ''}
-          ${warn ? '<span class="lt-warn" title="Дві важкі задачі підряд — встав між ними приємну">!</span>' : ''}
+          ${warn ? '<span class="lt-warn" title="Дві важкі справи підряд. Постав між ними приємну">!</span>' : ''}
           <button type="button" class="lt-del" data-unlink="${l.id}" title="Прибрати стрілку" aria-label="Прибрати стрілку">✕</button>
         </span>
       </div>`;
@@ -481,7 +481,7 @@ window.LP = window.LP || {};
     LP.modal({
       title: 'Початок ланцюжка',
       body: `<label class="field"><span>«${u.esc(task.title)}» починається о</span>${timeSelect('start', task.start != null ? task.start : 9 * 60)}</label>
-        <p class="hint">Час наступних задач рахується автоматично: тривалість кожної + перерви на стрілках.</p>`,
+        <p class="hint">Час наступних справ рахується сам: тривалість кожної плюс перерви на стрілках.</p>`,
       onSubmit: (form) => {
         task.start = parseInt(form.start.value, 10);
         LP.save();
@@ -498,7 +498,7 @@ window.LP = window.LP || {};
       body: `
         <label class="field"><span>На який день</span><input type="date" name="date" value="${u.today()}"></label>
         <ol class="chain-list">${c.items.map((it) => `<li>${LP.moodDot(it.task.mood)}<b>${u.fmtTime(it.start)}—${u.fmtTime(it.end)}</b> ${u.esc(it.task.title)}${it.parts.length > 1 ? ` <span class="mono muted">· ${it.parts.length} частини з перервами</span>` : ''}</li>`).join('')}</ol>
-        <p class="hint">Задачі стануть справами в розкладі з тими самими часом, типом і бонусами, а з дошки зникнуть.</p>`,
+        <p class="hint">Картки стануть справами в розкладі з тим самим часом, типом і бонусами, а з дошки зникнуть.</p>`,
       onSubmit: (form) => {
         if (!form.date.value) return false;
         LP.chainToWeek(headId, form.date.value);

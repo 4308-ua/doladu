@@ -2588,12 +2588,12 @@ html.theme-soft .yr-dtag.is-holiday { border-radius: 4px !important; }
 .yr-it { display: grid; grid-template-columns: 17px minmax(0, 1fr); gap: 6px; align-items: baseline; width: 100%; margin: 0; padding: 3px 2px 3px 1px; border: 0; border-radius: 6px; background: none; font: inherit; font-size: 13px; line-height: 1.25; color: var(--ink); text-align: left; cursor: default; transition: background 120ms var(--ease); }
 .yr-it[data-mark], .yr-it[data-date-id] { cursor: var(--c-pointer); }
 .yr-it-d { font-family: var(--mono); font-size: 11px; font-weight: 600; text-align: right; color: var(--gray); font-variant-numeric: tabular-nums; }
-.yr-it-t { min-width: 0; overflow-wrap: anywhere; hyphens: auto; font-stretch: 88%; }
-.yr-it-t small { display: block; margin-top: 1px; font-family: var(--mono); font-size: 10.5px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: var(--gray); }
-.yr-it.t-mark .yr-it-t, .yr-it.t-span .yr-it-t { font-weight: 800; font-stretch: 76%; letter-spacing: 0.005em; }
-.yr-it.t-mark .yr-it-d, .yr-it.t-span .yr-it-d { color: var(--ink); font-weight: 700; }
-.yr-it.t-bday .yr-it-d { color: var(--red); font-weight: 700; }
-.yr-it.t-hol { color: #77766f; font-size: 12px; }
+.yr-it-t { min-width: 0; overflow-wrap: break-word; hyphens: auto; font-stretch: 88%; font-weight: 600; }
+.yr-it-t small { font: inherit; font-weight: 500; color: var(--gray); }
+.yr-it.t-mark .yr-it-t, .yr-it.t-span .yr-it-t { font-weight: 600; }
+.yr-it.t-mark .yr-it-d, .yr-it.t-span .yr-it-d { color: var(--ink); }
+.yr-it.t-bday .yr-it-d { color: var(--red); }
+.yr-it.t-hol { color: #77766f; }
 .yr-it.t-hol .yr-it-d { color: #a3a29c; font-weight: 500; }
 .yr-it.is-past { opacity: 0.48; }
 .yr-it.is-today .yr-it-d { background: var(--red); color: #fff; border-radius: 4px; text-align: center; }
@@ -2619,9 +2619,7 @@ html.theme-soft .yr-dtag.is-holiday { border-radius: 4px !important; }
 .yr-agenda .yr-mhead { font-size: 12px; padding: 0 0 6px; border-bottom: 2px solid var(--ink); color: var(--ink); margin-bottom: 2px; }
 .yr-agenda .yr-mgroup.is-now .yr-mhead { border-bottom-color: var(--red); }
 .yr-agenda .yr-it { grid-template-columns: 30px minmax(0, 1fr); gap: 10px; font-size: 16px; padding: 11px 6px 11px 0; border-radius: 0; border-bottom: 1px solid #dcdbd6; min-height: 44px; }
-.yr-agenda .yr-it.t-hol { font-size: 15px; }
 .yr-agenda .yr-it-d { font-size: 13px; }
-.yr-agenda .yr-it-t small { font-size: 10.5px; margin-top: 2px; }
 .yr-agenda .yr-it.is-today .yr-it-d { padding: 1px 0; }
 .yr-empty { margin: 8px 0 0; font-size: 14px; color: var(--gray); }
 .yr-past { margin-top: 2px; }
@@ -2686,4 +2684,37 @@ html.theme-soft .yr-dtag.is-holiday { border-radius: 4px !important; }
 @media (min-width: 761px) {
   .hb-name { white-space: normal; overflow: visible; line-height: 1.2; font-size: 13.5px; }
 }
-.yr-it.is-long .yr-it-t { font-size: 11.5px; font-stretch: 72%; line-height: 1.3; }
+
+/* рік: увесь список одним шрифтом — типи розрізняє лише колір числа */
+.yr-it, .yr-it.t-hol { font-size: 13px; }
+.yr-it-d, .yr-it.t-hol .yr-it-d { font-weight: 600; }
+.yr-agenda .yr-it, .yr-agenda .yr-it.t-hol { font-size: 16px; }
+
+/* ===== ПК: шапка — «док» зі значками й меню у два рядки ===== */
+@media (min-width: 761px) {
+  .masthead { position: relative; }
+  .mast-links { position: absolute; top: 10px; right: 28px; margin: 0 !important; gap: 2px !important; padding: 4px 5px; border-radius: 999px; background: var(--sheet, #fff); box-shadow: var(--lay-1); z-index: 5; }
+  .mast-links .icon-link { width: 32px; height: 32px; transition: transform 160ms var(--ease), background 160ms var(--ease), color 160ms var(--ease); }
+  .mast-links .icon-link svg { width: 18px; height: 18px; }
+  .mast-links .icon-link:hover, .mast-links .icon-link:focus-visible { background: var(--ink); color: #fff; transform: translateY(-1px); }
+  .mast-links .icon-link.sync-btn.is-error:hover { background: var(--red); }
+  .mast-links .icon-link:active { transform: translateY(0) scale(0.94); }
+  /* підпис під значком — видно, що робить кнопка, без вгадування */
+  .mast-links .icon-link::before { content: attr(data-tip); position: absolute; top: calc(100% + 9px); right: -4px; padding: 5px 9px; border-radius: 7px; background: var(--ink); color: #fff; font-family: var(--mono); font-size: 10.5px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; pointer-events: none; opacity: 0; transform: translateY(-4px); transition: opacity 140ms var(--ease), transform 140ms var(--ease); }
+  .mast-links .icon-link:hover::before, .mast-links .icon-link:focus-visible::before { opacity: 1; transform: none; transition-delay: 120ms; }
+  #btn-radio.is-on { color: var(--red); }
+  #btn-radio.is-on svg { animation: radio-beat 1.6s ease-in-out infinite; }
+  /* меню: зверху час (день, тиждень, рік), знизу напрямок (цілі, баланс, статистика) */
+  .mast-nav { grid-template-columns: repeat(3, auto); grid-template-rows: none; grid-auto-flow: row; column-gap: 30px; row-gap: 3px; margin-top: 52px; padding-bottom: 12px; align-self: end; justify-items: start; }
+  .mast-nav button { position: relative; padding: 1px 0 3px; background: linear-gradient(var(--ink), var(--ink)) left bottom / 0 2px no-repeat; transition: background-size 180ms var(--ease), color 140ms var(--ease); }
+  .mast-nav button:hover { background-size: 100% 2px; }
+  .mast-nav button.is-active { background-size: 100% 2px; background-image: linear-gradient(var(--red), var(--red)); }
+  .mast-nav button.is-active::after { content: none; }
+}
+@keyframes radio-beat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.14); } }
+@media (prefers-reduced-motion: reduce) { #btn-radio.is-on svg { animation: none; } }
+/* вузькі місяці (звичайний ноутбук): той самий шрифт, лише вужчий — щоб слова не рвалися */
+.yr-months.is-tight .yr-mcol { padding: 0 2px 0 5px; }
+.yr-months.is-tight .yr-it { grid-template-columns: 15px minmax(0, 1fr); gap: 5px; padding-left: 0; padding-right: 0; }
+.yr-months.is-tight .yr-it-t { font-stretch: 76%; }
+.yr-it.t-hol { color: var(--ink); }

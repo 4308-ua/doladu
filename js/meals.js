@@ -1,5 +1,5 @@
 // Прийоми їжі: сніданок, обід, вечеря й перекуси — тихою смугою в кожному дні розкладу.
-// Це не задачі: не рахуються у виконаному й не впливають на статистику.
+// Це не справи: не рахуються у виконаному й не впливають на статистику.
 // meals: [{ id, name, start, duration, date: null (щодня) | 'YYYY-MM-DD' (лише цей день), skipDates: [] }]
 window.LP = window.LP || {};
 
@@ -140,7 +140,7 @@ window.LP = window.LP || {};
         <div class="meal-list">${rows(draft)}</div>
         <div class="row"><button type="button" class="btn" data-add="snack">+ ПЕРЕКУС</button><button type="button" class="btn" data-add="meal">+ ПРИЙОМ ЇЖІ</button>
           <button type="button" class="btn" data-reset>СНІДАНОК · ОБІД · ВЕЧЕРЯ</button></div>
-        <p class="hint">Стоять щодня тихою смугою під задачами. Прибрати в окремий день чи додати разовий перекус — клік по смузі в розкладі.</p>`,
+        <p class="hint">Стоять щодня тонкою смугою під справами. Щоб прибрати в окремий день або додати перекус, натисни на смугу в розкладі.</p>`,
       onOpen: (form) => {
         const list = form.querySelector('.meal-list');
         const read = () => draft.forEach((m) => {

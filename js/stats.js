@@ -88,7 +88,7 @@ window.LP = window.LP || {};
       snaps.map((s) => card(s.scores, u.fmtDate(s.date).toUpperCase(), 'СЕРЕДНЯ ' + avg(s.scores), s.date === today)).join('');
     return `<section class="chart chart-wide">
       <div class="label">ЗРІЗИ БАЛАНСУ</div>
-      ${snaps.length ? '' : '<p class="empty-note">Збережи оцінку на сторінці «Баланс» — тут накопичуватимуться зрізи.</p>'}
+      ${snaps.length ? '' : '<p class="empty-note">Постав оцінки на сторінці «Баланс», і тут збиратиметься історія.</p>'}
       <div class="snap-strip">${cards}</div>
       ${key}
     </section>`;
@@ -108,7 +108,7 @@ window.LP = window.LP || {};
     const withEntry = days.map((d) => ({ d, e: LP.journal(d) })).filter((p) => p.e);
     if (!withEntry.length) {
       return `<section class="chart chart-wide"><div class="label">СТАН ПО ДНЯХ</div>
-        <p class="empty-note">Натисни на шапку дня в тижні й запиши, як ти, — тут зʼявиться графік стану.</p></section>`;
+        <p class="empty-note">Натисни на шапку дня на «Тижні» й запиши, як ти. Тут зʼявиться графік стану.</p></section>`;
     }
     let svg = '';
     [2, 4, 6, 8, 10].forEach((v) => (svg += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" class="mc-grid"/><text x="${L - 8}" y="${y(v) + 4}" class="mc-y">${v}</text>`));

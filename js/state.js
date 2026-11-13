@@ -5,7 +5,7 @@
 //   settings: { dayStart, dayEnd },
 //   journal: { 'YYYY-MM-DD': { state, score, note, gratitude } },   // щоденник стану
 //   rewards: [{ id, text, source, eventId, date, used }],             // заслужені приємності
-//   links:   [{ id, from, to, gap }],                                 // стрілки між задачами на дошці (gap — перерва, хв)
+//   links:   [{ id, from, to, gap }],                                 // стрілки між справами на дошці (gap — перерва, хв)
 //   goals: [{
 //     id, title, level: 'long'|'short'|'week', tag, description, start, deadline, image, createdAt,
 //     // довгі й короткі цілі. Мірило: години або повторення; підцілі — необовʼязкові.
@@ -16,9 +16,9 @@
 //   }],
 //   events: [{ id, title, date, start, end, repeat: 'none'|'weekly', group (серія на кілька днів), until, doneDates:[], skipDates:[], note,
 //              goalId, subgoalId, customGoal, habitId,
-//              mood: 'good'|'mid'|'bad'|null,   // колір задачі: приємна / нейтральна / важка
+//              mood: 'good'|'mid'|'bad'|null,   // колір справи: приємна / нейтральна / важка
 //              bonus,                            // винагорода за виконання (обовʼязкова для 'bad')
-//              taskId }],                        // з якої задачі беклогу створено
+//              taskId }],                        // з якої справи беклогу створено
 //   tasks: [{ id, title, mood, stage: 'board'|'backlog'|'scheduled', x, y,
 //             goalId, subgoalId, duration, bonus, note, createdAt }],
 //   habits: [{ id, title, perWeek, timed, checks:[], createdAt }],   // timed — виконується лише через розклад
@@ -40,9 +40,9 @@ window.LP = window.LP || {};
   LP.bonusAllowed = (mood) => mood === 'mid' || mood === 'bad';
   LP.bonusRequired = (mood) => mood === 'bad';
   LP.STATES = ['спокійно', 'нормально', 'радісно', 'натхненно', 'ексайтед', 'втомлено', 'тривожно', 'сумно', 'пригнічено', 'роздратовано'];
-  LP.BREAK_AFTER = 45; // після задачі від 45 хв пропонується перерва
-  LP.SPLIT_BREAK = 10; // перерва між частинами довгої задачі
-  // Довга задача (понад годину) ділиться на рівні частини по 30–60 хв: 90 → 45+45, 180 → 60+60+60, 150 → 50+50+50
+  LP.BREAK_AFTER = 45; // після справи від 45 хв пропонується перерва
+  LP.SPLIT_BREAK = 10; // перерва між частинами довгої справи
+  // Довга справа (понад годину) ділиться на рівні частини по 30–60 хв: 90 → 45+45, 180 → 60+60+60, 150 → 50+50+50
   LP.splitDuration = function (d) {
     if (d <= 60) return [d];
     const n = Math.ceil(d / 60);
@@ -51,7 +51,7 @@ window.LP = window.LP || {};
     parts.push(d - base * (n - 1));
     return parts;
   };
-  // Частини задачі з перервами між ними, від заданого старту
+  // Частини справи з перервами між ними, від заданого старту
   LP.taskParts = function (task, start) {
     const durs = task.split === false ? [task.duration] : LP.splitDuration(task.duration);
     let t = start;
@@ -541,7 +541,7 @@ window.LP = window.LP || {};
     return false;
   };
 
-  // Позначка виконання. Якщо щойно виконано задачу з бонусом — святкуємо.
+  // Позначка виконання. Якщо щойно виконано справу з бонусом — святкуємо.
   LP.toggleDone = function (evId, date) {
     const ev = LP.event(evId);
     if (!ev) return;
@@ -614,7 +614,7 @@ window.LP = window.LP || {};
     LP.save();
   };
 
-  // ---------- Серії на кілька днів тижня (одна задача в той самий час у вибрані дні) ----------
+  // ---------- Серії на кілька днів тижня (одна справа в той самий час у вибрані дні) ----------
   // Кожен день — окрема щотижнева справа; спільний ідентифікатор group звʼязує їх.
   LP.eventGroup = function (ev, occDate) {
     if (!ev.group) return [ev];
@@ -691,8 +691,8 @@ window.LP = window.LP || {};
     } else {
       detach(() => true);
       LP.data.events = LP.data.events.filter((e) => e.id !== evId);
-      // задача повертається в беклог, якщо ще не виконана
-      // (якщо задача була поділена на частини — лише коли прибрано всі її частини)
+      // справа повертається в беклог, якщо ще не виконана
+      // (якщо справа була поділена на частини — лише коли прибрано всі її частини)
       if (ev.taskId && !ev.doneDates.length && !LP.data.events.some((e) => e.taskId === ev.taskId)) {
         const t = LP.task(ev.taskId);
         if (t) t.stage = 'backlog';
@@ -713,7 +713,7 @@ window.LP = window.LP || {};
       // однаковий старт: спершу приємна (напр. 15 хв кави між двома важкими)
       const withMood = arr.filter((o) => o.ev.mood).sort((a, b) => a.ev.start - b.ev.start || rank[a.ev.mood] - rank[b.ev.mood]);
       for (let i = 1; i < withMood.length; i++) {
-        // пауза від 2 годин між задачами — це вже не «підряд»
+        // пауза від 2 годин між справами — це вже не «підряд»
         if (withMood[i].ev.start - withMood[i - 1].ev.end >= 120) continue;
         // «робота / обовʼязкове» — не попереджати
         if (withMood[i].ev.noWarn || withMood[i - 1].ev.noWarn) continue;
@@ -731,7 +731,7 @@ window.LP = window.LP || {};
     return warn;
   };
 
-  // ================= Задачі (дошка й беклог) =================
+  // ================= Справи (дошка й беклог) =================
   LP.task = (id) => LP.data.tasks.find((t) => t.id === id) || null;
   LP.saveTask = function (fields, silent) {
     fields = clean(fields);
@@ -751,8 +751,8 @@ window.LP = window.LP || {};
     LP.save();
   };
 
-  // ---------- Стрілки між задачами на дошці: ланцюжки з часом ----------
-  // Кожна задача має щонайбільше одну вхідну й одну вихідну стрілку — виходить ланцюжок.
+  // ---------- Стрілки між справами на дошці: ланцюжки з часом ----------
+  // Кожна справа має щонайбільше одну вхідну й одну вихідну стрілку — виходить ланцюжок.
   LP.link = function (from, to) {
     if (from === to) return;
     // не замикаємо коло
@@ -778,7 +778,7 @@ window.LP = window.LP || {};
     if (l) l.gap = gap;
     LP.save();
   };
-  // Ланцюжки: [{ items: [{ task, start, end }], links: [link] }]; час рахується від старту першої задачі
+  // Ланцюжки: [{ items: [{ task, start, end }], links: [link] }]; час рахується від старту першої справи
   LP.chains = function () {
     const links = LP.data.links;
     const heads = LP.data.tasks.filter((t) => t.stage === 'board' && links.some((l) => l.from === t.id) && !links.some((l) => l.to === t.id));
@@ -818,7 +818,7 @@ window.LP = window.LP || {};
     LP.save();
   };
 
-  // Задача → справи в розкладі: кожна частина — окрема справа «Назва · 1/3»; бонус — лише за останню частину
+  // Справа → справи в розкладі: кожна частина — окрема справа «Назва · 1/3»; бонус — лише за останню частину
   LP.addTaskEvents = function (task, date, parts, silent) {
     const created = [];
     parts.forEach((p, i) => {
@@ -900,7 +900,7 @@ window.LP = window.LP || {};
   LP.backlog = () => LP.data.tasks.filter((t) => t.stage === 'backlog');
 
   // ---------- Плани: розкладена дошка, що переїхала в беклог цілою ----------
-  // task.plan = { id, i, at, gap }: порядок у ланцюжку, запланований старт, перерва після задачі
+  // task.plan = { id, i, at, gap }: порядок у ланцюжку, запланований старт, перерва після справи
   LP.boardToBacklog = function () {
     let n = 0;
     LP.chains().sort((a, b) => a.items[0].start - b.items[0].start).forEach((c) => {
@@ -916,7 +916,7 @@ window.LP = window.LP || {};
     LP.save();
     return n;
   };
-  // Час кожної задачі плану від старту (рахується наново — якщо задачу змінили, план підлаштується)
+  // Час кожної справи плану від старту (рахується наново — якщо справу змінили, план підлаштується)
   LP.planTimes = function (items, start) {
     let time = start;
     return items.map((t) => {

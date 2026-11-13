@@ -82,7 +82,7 @@ window.LP = window.LP || {};
   LP.tagHtml = (tag) => (tag ? `<span class="tag">[${u.esc(tag)}]</span>` : '');
   LP.moodDot = (mood) => (mood ? `<span class="mood mood-${mood}" title="${LP.MOODS[mood]}"></span>` : '');
 
-  // Перемикач кольору задачі
+  // Перемикач кольору справи
   LP.moodPicker = function (selected, allowNone = true) {
     const opts = Object.entries(LP.MOODS).map(([k, v]) =>
       `<label class="mood-opt"><input type="radio" name="mood" value="${k}" ${selected === k ? 'checked' : ''}><span><i class="mood mood-${k}"></i>${v}</span></label>`);
@@ -112,7 +112,7 @@ window.LP = window.LP || {};
     });
   };
 
-  // ---------------- Бонус за виконану задачу ----------------
+  // ---------------- Бонус за виконану справу ----------------
   LP.celebrate = function (ev) {
     document.querySelectorAll('.celebrate').forEach((c) => c.remove());
     const el = document.createElement('div');
@@ -164,7 +164,7 @@ window.LP = window.LP || {};
         <label class="field"><span>Старт</span><input type="date" name="start" value="${u.esc(g.start || '')}"></label>
         <label class="field"><span>Дедлайн</span><input type="date" name="deadline" value="${u.esc(g.deadline || '')}"></label>
       </div>
-      <label class="field"><span>Опис — навіщо ця ціль і як зрозуміти, що її досягнуто <b class="desc-count"></b></span>
+      <label class="field"><span>Опис: навіщо ця ціль і як зрозуміти, що її досягнуто <b class="desc-count"></b></span>
         <textarea name="description" rows="3" placeholder="Мінімум ${LP.MIN_DESCRIPTION} символів">${u.esc(g.description || '')}</textarea></label>
       <div class="field">
         <span>Картинка для мотивації (необовʼязково)</span>
@@ -175,20 +175,20 @@ window.LP = window.LP || {};
         </div>
       </div>
       <div class="field own-metric">
-        <span>Мета цілі — коли підцілей немає</span>
+        <span>Як рахувати прогрес, якщо підцілей немає</span>
         <div class="row">
           <label class="field"><select name="kind" aria-label="Мірило">${Object.entries(LP.KINDS).map(([k, v]) => `<option value="${k}" ${k === g.kind ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
           <label class="field field-narrow own-target"><input type="number" name="target" min="0" step="any" value="${g.target || ''}" placeholder="скільки" aria-label="Мета"></label>
           <label class="field field-narrow own-unit"><input type="text" name="unit" maxlength="10" value="${u.esc(g.unit || '')}" placeholder="грн, км, сторінок" aria-label="Одиниця"></label>
         </div>
-        <p class="hint">«Один раз» — просто галочка. «Разів» і «годин» — рахують виконані справи, привʼязані до цілі. «Своє число» — для грошей, сторінок, кілометрів: вносиш суми вручну, кнопкою «+ ВНЕСОК» на сторінці цілей.</p>
+        <p class="hint">«Один раз» означає просто галочку. «Разів» і «годин» рахують виконані справи, привʼязані до цілі. «Своє число» підходить для грошей, сторінок чи кілометрів: суми вносиш кнопкою «+ ВНЕСОК» на сторінці цілей.</p>
       </div>
       <div class="field">
         <span>Підцілі — за бажанням <b class="sub-count ok"></b></span>
         <div class="sub-head" ${g.subgoals.length ? '' : 'hidden'}><span>Що зробити</span><span>Мірило</span><span>Мета</span><span>Вага 1–100</span><span>Частка</span><span></span></div>
         <div class="sub-list">${g.subgoals.map(subRowHtml).join('')}</div>
         <button type="button" class="link-btn add-sub">+ Підціль</button>
-        <p class="hint">З підцілями прогрес цілі — середнє зважене: вага показує, наскільки підціль важлива.</p>
+        <p class="hint">Якщо є підцілі, прогрес цілі складається з них. Вага показує, наскільки підціль важлива.</p>
       </div>`;
 
     const readSubs = (form) =>
@@ -325,9 +325,9 @@ window.LP = window.LP || {};
           ${ev ? '' : `<label class="field field-date"><span>Тиждень</span><input type="date" name="week" value="${g.week}"></label>`}
         </div>
         ${ev
-          ? `<p class="hint">Ціль з часом: привʼязана до справи «${u.esc(ev.title)}» ${u.fmtDay(g.eventDate)}, ${u.fmtTime(ev.start)}. Виконана — коли виконана справа.</p>`
+          ? `<p class="hint">Ціль привʼязана до справи «${u.esc(ev.title)}» (${u.fmtDay(g.eventDate)}, ${u.fmtTime(ev.start)}) і стане виконаною разом із нею.</p>`
           : `<label class="check"><input type="checkbox" name="done" ${g.done ? 'checked' : ''}> Виконано</label>
-             <p class="hint">Це ціль без часу — відмічаєш вручну. Щоб ціль мала час, створи її з розкладу: у справі постав галочку «Ціль тижня».</p>`}`,
+             <p class="hint">Це ціль без часу, її відмічаєш вручну. Щоб ціль мала час, створи її з розкладу: у справі постав галочку «Ціль тижня».</p>`}`,
       extra: isNew ? [] : [{ text: 'Видалити', className: 'btn-danger', onClick: () => LP.deleteGoal(g.id) }],
       onSubmit: (form) => {
         const title = form.title.value.trim();
@@ -360,7 +360,7 @@ window.LP = window.LP || {};
           <label><input type="radio" name="timed" value="0" ${!h.timed ? 'checked' : ''}><span>Без часу — відмічаю вручну</span></label>
           <label><input type="radio" name="timed" value="1" ${h.timed ? 'checked' : ''}><span>З часом — тільки через розклад</span></label>
         </div>
-        <p class="hint">Звичка з часом зараховується лише тоді, коли ти поставив її в розклад як справу і позначив виконаною. Звичку без часу відмічаєш кліком по клітинці дня.</p>`,
+        <p class="hint">Звичка з часом зараховується, коли ти поставив її в розклад як справу й позначив виконаною. Звичку без часу відмічаєш у клітинці дня.</p>`,
       extra: isNew ? [] : [{
         text: 'Видалити',
         className: 'btn-danger',
@@ -384,7 +384,7 @@ window.LP = window.LP || {};
     });
   };
 
-  // ---------------- Задача (дошка / беклог) ----------------
+  // ---------------- Справа (дошка / беклог) ----------------
   LP.goalLinkFields = function (goalId, subgoalId) {
     return `
       <div class="row">
@@ -407,7 +407,7 @@ window.LP = window.LP || {};
     form.querySelector('.field-sub').hidden = !subs.length;
   };
 
-  // Поле бонусу залежить від кольору задачі: приємна — без бонусу, нейтральна — за бажанням, важка — обовʼязково
+  // Поле бонусу залежить від кольору справи: приємна — без бонусу, нейтральна — за бажанням, важка — обовʼязково
   LP.syncBonusField = function (form) {
     const checked = form.querySelector('input[name=mood]:checked');
     const mood = checked ? checked.value : '';
@@ -415,8 +415,8 @@ window.LP = window.LP || {};
     field.hidden = !LP.bonusAllowed(mood);
     field.classList.toggle('required', LP.bonusRequired(mood));
     field.querySelector('span').textContent = LP.bonusRequired(mood)
-      ? 'Бонус після виконання — обовʼязково для важкої'
-      : 'Бонус після виконання — за бажанням';
+      ? 'Бонус після виконання (для важкої обовʼязковий)'
+      : 'Бонус після виконання (за бажанням)';
   };
   LP.bonusField = (value) => `
     <label class="field field-bonus"><span>Бонус після виконання</span>
@@ -431,8 +431,8 @@ window.LP = window.LP || {};
       const mood = form.querySelector('input[name=mood]:checked').value;
       const bonus = LP.bonusAllowed(mood) ? form.bonus.value.trim() : '';
       const errors = [];
-      if (!form.title.value.trim()) errors.push('Назви задачу.');
-      if (LP.bonusRequired(mood) && !bonus) errors.push('Для важкої задачі придумай бонус — що отримаєш після виконання.');
+      if (!form.title.value.trim()) errors.push('Назви справу.');
+      if (LP.bonusRequired(mood) && !bonus) errors.push('Для важкої справи придумай бонус: що отримаєш після виконання.');
       LP.showErrors(form, errors);
       if (errors.length) return false;
       LP.saveTask({
@@ -454,11 +454,11 @@ window.LP = window.LP || {};
     if (onBoard && !toBacklog) extra.push({ text: 'В беклог →', className: 'btn-primary', onClick: (form) => collect(form, 'backlog') });
 
     LP.modal({
-      title: toBacklog ? 'В беклог' : 'Задача',
+      title: toBacklog ? 'В беклог' : 'Справа',
       submitText: toBacklog ? 'В беклог' : 'Зберегти',
       body: `
-        <label class="field"><span>Задача</span><input type="text" name="title" maxlength="120" value="${u.esc(t.title)}"></label>
-        <div class="field"><span>Як тобі ця задача</span>${LP.moodPicker(t.mood, false)}</div>
+        <label class="field"><span>Справа</span><input type="text" name="title" maxlength="120" value="${u.esc(t.title)}"></label>
+        <div class="field"><span>Як тобі ця справа</span>${LP.moodPicker(t.mood, false)}</div>
         ${LP.bonusField(t.bonus)}
         ${LP.goalLinkFields(t.goalId, t.subgoalId)}
         <div class="row">
@@ -534,7 +534,7 @@ window.LP = window.LP || {};
           <div class="reader-tools">
             <button type="button" class="tool ${tool === 'marker' ? 'on' : ''}" data-tool="marker"><i class="tool-swatch"></i>МАРКЕР</button>
             <button type="button" class="tool ${tool === 'eraser' ? 'on' : ''}" data-tool="eraser">ГУМКА</button>
-            <span class="mono muted">${tool === 'marker' ? 'Виділи мишкою слово чи фразу — вона залишиться підсвіченою' : 'Клікни по виділеному, щоб прибрати'}</span>
+            <span class="mono muted">${tool === 'marker' ? 'Виділи слово чи фразу, і вона лишиться підсвіченою' : 'Натисни на виділене, щоб прибрати'}</span>
           </div>
           <div class="reader-body tool-${tool}">
             <div class="jc-head">${j.score ? `<b>${j.score}</b><small>/10</small>` : ''}${j.state ? `<span>${u.esc(j.state)}</span>` : ''}</div>
@@ -652,7 +652,7 @@ window.LP = window.LP || {};
           <label><input type="radio" name="ok" value="1" ${p.ok ? 'checked' : ''}><span>Мені ок, як є</span></label>
           <label><input type="radio" name="ok" value="0" ${!p.ok ? 'checked' : ''}><span>Хочу щось змінити</span></label>
         </div>
-        <p class="hint person-hint-map">Якщо хочеш змінити — імʼя на карті буде в рамці, а з точки виходить стрілка. Перетягни її кінець туди, куди хочеш рухати стосунки.</p>
+        <p class="hint person-hint-map">Якщо хочеш щось змінити, імʼя на карті буде в рамці, а з точки вийде стрілка. Перетягни її кінець туди, куди хочеш рухати стосунки.</p>
         <div class="person-quad">
           <div class="seg" role="radiogroup" aria-label="Як ця людина на тебе впливає">
             <label><input type="radio" name="qy" value="1" ${p.y >= 0.5 ? 'checked' : ''}><span>Заряджає</span></label>
@@ -663,7 +663,7 @@ window.LP = window.LP || {};
             <label><input type="radio" name="qx" value="0" ${p.x < 0.5 ? 'checked' : ''}><span>Рідко</span></label>
           </div>
         </div>
-        <label class="field"><span>Нотатка</span><input type="text" name="note" maxlength="120" value="${u.esc(p.note || '')}" placeholder="Напр. хочу бачитися частіше"></label>`,
+        <label class="field"><span>Нотатка</span><input type="text" name="note" maxlength="120" value="${u.esc(p.note || '')}" placeholder="Наприклад: хочу бачитися частіше"></label>`,
       extra: isNew ? [] : [{
         text: 'Видалити',
         className: 'btn-danger',

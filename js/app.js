@@ -147,7 +147,7 @@ window.LP = window.LP || {};
     e.preventDefault();
     const redo = e.code === 'KeyY' || e.shiftKey;
     const ok = redo ? LP.redo() : LP.undo();
-    LP.toast(ok ? (redo ? 'ПОВЕРНУТО ↷' : 'ВІДКОТИВ ↶') : redo ? 'НЕМАЄ ЩО ПОВЕРТАТИ' : 'НЕМАЄ ЩО ВІДКОЧУВАТИ');
+    LP.toast(ok ? (redo ? 'ПОВЕРНУТО ↷' : 'СКАСОВАНО ↶') : redo ? 'НЕМАЄ ЩО ПОВЕРТАТИ' : 'НЕМАЄ ЩО СКАСОВУВАТИ');
   });
 
   document.addEventListener('keydown', (e) => {
@@ -175,10 +175,10 @@ window.LP = window.LP || {};
     LP.modal({
       title: 'Експорт',
       submitText: 'Закрити',
-      body: `<p class="hint">Тут файл не завантажується. Скопіюй текст нижче й збережи його в нотатках чи надішли собі — це повна копія твоїх даних.</p>
+      body: `<p class="hint">Тут файл не завантажується. Скопіюй текст нижче й збережи в нотатках або надішли собі. Це повна копія твоїх даних.</p>
         <textarea name="dump" rows="8" readonly>${u.esc(json)}</textarea>
         <button type="button" class="btn" data-copy>КОПІЮВАТИ</button>
-        <p class="hint">Щоб перенести дані сюди з компʼютера: там — «Експорт», тут — «Імпорт» і вибери збережений файл або встав текст:</p>
+        <p class="hint">Щоб перенести дані з компʼютера, зроби там «Експорт», а тут вибери збережений файл або встав текст:</p>
         <textarea name="paste" rows="3" placeholder="Встав сюди скопійований текст експорту"></textarea>
         <button type="button" class="btn" data-paste>ІМПОРТУВАТИ З ТЕКСТУ</button>`,
       onOpen: (form) => {
@@ -192,7 +192,7 @@ window.LP = window.LP || {};
             LP.closeModal();
             LP.replaceData(d);
             LP.toast('ДАНІ ІМПОРТОВАНО');
-          } catch (e) { LP.showErrors(form, ['Це не схоже на текст експорту — скопіюй його повністю.']); }
+          } catch (e) { LP.showErrors(form, ['Це не схоже на текст експорту. Скопіюй його повністю.']); }
         });
       },
       onSubmit: () => {},
@@ -206,7 +206,7 @@ window.LP = window.LP || {};
     if (!f) return;
     try {
       const d = await LP.storage.readFile(f);
-      if (!LP.embedded && !confirm('Замінити всі поточні дані даними з файлу? Поточні дані буде втрачено (зроби експорт, якщо вони потрібні).')) return;
+      if (!LP.embedded && !confirm('Замінити всі дані даними з файлу? Теперішні дані зникнуть. Якщо вони потрібні, спершу зроби експорт.')) return;
       LP.replaceData(d);
     } catch (e) {
       alert('Не вдалося прочитати файл: ' + e.message);
@@ -229,15 +229,15 @@ window.LP = window.LP || {};
         </div>
         <div class="field"><span>Основний колір</span><div class="accent-row">${Object.entries(LP.ACCENTS).map(([k, a]) =>
           `<label class="accent-opt"><input type="radio" name="accent" value="${k}" ${k === (s.accent || 'red') ? 'checked' : ''}><span><i style="background:${a.c}"></i>${a.name}</span></label>`).join('')}</div></div>
-        <label class="check"><input type="checkbox" name="orderWarnings" ${s.orderWarnings !== false ? 'checked' : ''}> Попереджати про важкі задачі підряд</label>
-        <label class="check"><input type="checkbox" name="fitDay" ${s.fitDay !== false ? 'checked' : ''}> Весь день на екрані без прокрутки (масштаб підлаштовується під вікно)</label>
+        <label class="check"><input type="checkbox" name="orderWarnings" ${s.orderWarnings !== false ? 'checked' : ''}> Попереджати про важкі справи підряд</label>
+        <label class="check"><input type="checkbox" name="fitDay" ${s.fitDay !== false ? 'checked' : ''}> Весь день на екрані без прокрутки</label>
         <div class="field tg-set"><span>Нагадування в Telegram</span>
           <div class="tg-link">
             <div class="tg-link-row">
               <button type="button" class="btn btn-primary" data-tg-link>${s.tgChat ? 'ПІДКЛЮЧИТИ ЗАНОВО' : 'ПІДКЛЮЧИТИ TELEGRAM →'}</button>
               ${s.tgChat ? '<button type="button" class="link-btn" data-tg-off>ВІДКЛЮЧИТИ</button>' : ''}
             </div>
-            <p class="hint tg-status ${s.tgChat ? 'is-on' : ''}">${s.tgChat ? '✓ Telegram підключено.' : 'Відкриється бот — натисни «Старт» і повернись сюди: підключиться саме.'}</p>
+            <p class="hint tg-status ${s.tgChat ? 'is-on' : ''}">${s.tgChat ? '✓ Telegram підключено.' : 'Відкриється бот. Натисни «Старт» і повернись сюди, далі все підключиться саме.'}</p>
             <details class="tg-manual"><summary>або вручну за ID</summary>
               <label class="field"><span>Твій Telegram ID</span><input type="text" name="tgChat" inputmode="numeric" value="${LP.u.esc(s.tgChat || '')}" placeholder="123456789"></label>
               <p class="hint">ID дізнаєшся в боті @userinfobot (рядок «Id»), потім напиши @${TG_BOT} /start.</p>
@@ -247,27 +247,27 @@ window.LP = window.LP || {};
             <label class="field"><span>Нагадувати</span><select name="remindBefore">${[[-1, 'не нагадувати'], [0, 'на початку'], [5, 'за 5 хв'], [10, 'за 10 хв'], [15, 'за 15 хв'], [30, 'за 30 хв'], [60, 'за годину']].map(([v, t]) => `<option value="${v}" ${v === s.remindBefore ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
             <label class="field"><span>План на день</span><select name="morningAt">${[[-1, 'не надсилати']].concat([6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10].map((h) => [h * 60, LP.u.fmtTime(h * 60)])).map(([v, t]) => `<option value="${v}" ${v === s.morningAt ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
           </div>
-          <div class="field city-field"><span>Місто — для погоди в плані дня</span>
+          <div class="field city-field"><span>Місто для погоди в плані дня</span>
             <div class="city-row">
               <input type="text" name="cityQ" value="${LP.u.esc(s.city ? s.city.name : '')}" placeholder="Київ, Львів, Berlin…" autocomplete="off">
               <button type="button" class="btn btn-sm" data-city-find>ЗНАЙТИ</button>
               <button type="button" class="btn btn-sm" data-city-geo title="Визначити за геолокацією">📍</button>
             </div>
             <div class="city-results"></div>
-            <p class="hint city-chosen">${s.city ? 'Обрано: ' + LP.u.esc(s.city.label || s.city.name) : 'Не обрано — план дня прийде без погоди.'}</p>
+            <p class="hint city-chosen">${s.city ? 'Обрано: ' + LP.u.esc(s.city.label || s.city.name) : 'Не обрано. План дня прийде без погоди.'}</p>
           </div>
-          <p class="hint">Щоб бот знав, коли писати, у хмару йде розклад і дати з «Року» на 3 тижні вперед (назви, дати й час) — решта даних лишається зашифрованою. Без підключення нічого не передається.</p>
+          <p class="hint">Щоб бот знав, коли писати, у хмару йдуть розклад і дати з «Року» на 3 тижні вперед: назви, дати й час. Решта даних зашифрована. Без підключення нічого не передається.</p>
         </div>
         <div class="storage-meter"><span class="label">ДАНІ</span>
-          <p class="hint">Зберігаються в цьому браузері й зашифрованими — у хмарі (синхронізуються між пристроями). Зайнято ${(JSON.stringify(LP.data).length * 2 / 1024).toFixed(0)} КБ з приблизно 5 000 КБ. Найбільше місця беруть картинки цілей.</p></div>
-        <p class="hint">Ctrl+Z — відкотити останню дію, Ctrl+Y — повернути. Історія дій живе, поки відкрита сторінка.</p>
-        <p class="hint">Регулярно роби «Експорт» — це твоя резервна копія у файл.</p>
+          <p class="hint">Дані зберігаються в цьому браузері, а зашифрована копія лежить у хмарі й синхронізується між пристроями. Зайнято ${(JSON.stringify(LP.data).length * 2 / 1024).toFixed(0)} КБ з приблизно 5 000 КБ. Найбільше місця беруть картинки цілей.</p></div>
+        <p class="hint">Ctrl+Z скасовує останню дію, Ctrl+Y повертає. Історія дій зберігається, поки відкрита сторінка.</p>
+        <p class="hint">Час від часу роби «Експорт». Це твоя резервна копія у файлі.</p>
         <p><button type="button" class="link-btn" data-tour-again>ПОКАЗАТИ ТУР ЩЕ РАЗ →</button></p>`,
       extra: [{
         text: 'Стерти всі дані',
         className: 'btn-danger',
         onClick: () => {
-          if (!confirm('Точно стерти ВСІ цілі, справи, задачі, звички й оцінки? Це не можна скасувати.')) return false;
+          if (!confirm('Стерти всі цілі, справи, звички й оцінки? Повернути їх не вийде.')) return false;
           LP.replaceData({ settings: Object.assign({}, LP.data.settings) });
         },
       }],
@@ -276,7 +276,7 @@ window.LP = window.LP || {};
         let city = s.city || null;
         const chosen = form.querySelector('.city-chosen');
         const results = form.querySelector('.city-results');
-        const pick = (c) => { city = c; form.cityQ.value = c ? c.name : ''; chosen.textContent = c ? 'Обрано: ' + (c.label || c.name) : 'Не обрано — план дня прийде без погоди.'; results.innerHTML = ''; };
+        const pick = (c) => { city = c; form.cityQ.value = c ? c.name : ''; chosen.textContent = c ? 'Обрано: ' + (c.label || c.name) : 'Не обрано. План дня прийде без погоди.'; results.innerHTML = ''; };
         form._city = () => (form.cityQ.value.trim() ? city : null);
         const find = async () => {
           const q = form.cityQ.value.trim();
@@ -285,18 +285,18 @@ window.LP = window.LP || {};
           try {
             const r = await fetch('https://geocoding-api.open-meteo.com/v1/search?count=5&language=uk&format=json&name=' + encodeURIComponent(q)).then((x) => x.json());
             const list = (r.results || []).map((x) => ({ name: x.name, label: [x.name, x.admin1 !== x.name ? x.admin1 : null, x.country].filter(Boolean).join(', '), lat: +x.latitude.toFixed(3), lon: +x.longitude.toFixed(3) }));
-            results.innerHTML = list.length ? list.map((c, i) => `<button type="button" class="city-opt" data-i="${i}">${LP.u.esc(c.label)}</button>`).join('') : '<p class="hint">Нічого не знайшлося — спробуй інакше (можна латиницею).</p>';
+            results.innerHTML = list.length ? list.map((c, i) => `<button type="button" class="city-opt" data-i="${i}">${LP.u.esc(c.label)}</button>`).join('') : '<p class="hint">Нічого не знайшлося. Спробуй написати інакше, можна латиницею.</p>';
             results.querySelectorAll('.city-opt').forEach((b) => b.addEventListener('click', () => pick(list[+b.dataset.i])));
-          } catch (e) { results.innerHTML = '<p class="hint warn">Не вдалося знайти — перевір інтернет.</p>'; }
+          } catch (e) { results.innerHTML = '<p class="hint warn">Не вдалося знайти. Перевір інтернет.</p>'; }
         };
         form.querySelector('[data-city-find]').addEventListener('click', find);
         form.cityQ.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); find(); } });
         form.querySelector('[data-city-geo]').addEventListener('click', () => {
-          if (!navigator.geolocation) return (results.innerHTML = '<p class="hint warn">Цей браузер не дає геолокацію.</p>');
+          if (!navigator.geolocation) return (results.innerHTML = '<p class="hint warn">Цей браузер не вміє визначати місце.</p>');
           results.innerHTML = '<p class="hint">Визначаю…</p>';
           navigator.geolocation.getCurrentPosition(
             (p) => pick({ name: 'Моє місце', label: `Моє місце (${p.coords.latitude.toFixed(2)}, ${p.coords.longitude.toFixed(2)})`, lat: +p.coords.latitude.toFixed(3), lon: +p.coords.longitude.toFixed(3) }),
-            () => { results.innerHTML = '<p class="hint warn">Доступ до геолокації не дано — введи місто вручну.</p>'; },
+            () => { results.innerHTML = '<p class="hint warn">Немає доступу до геолокації. Введи місто вручну.</p>'; },
             { timeout: 10000 }
           );
         });
@@ -316,7 +316,7 @@ window.LP = window.LP || {};
             clearInterval(tgTimer);
             const check = async () => {
               if (!document.body.contains(form)) return clearInterval(tgTimer);
-              if (Date.now() - t0 > 10 * 60 * 1000) { clearInterval(tgTimer); return tgSay('Не дочекався — натисни «Підключити» ще раз.'); }
+              if (Date.now() - t0 > 10 * 60 * 1000) { clearInterval(tgTimer); return tgSay('Час вийшов. Натисни «Підключити» ще раз.'); }
               try {
                 const chat = await LP.sync.tgCheck(code);
                 if (!chat) return;
@@ -324,15 +324,15 @@ window.LP = window.LP || {};
                 form.tgChat.value = chat;
                 s.tgChat = chat;
                 LP.save({ render: false });
-                tgSay('✓ Підключено! Бот уже написав тобі в Telegram.', true);
+                tgSay('✓ Підключено. Бот уже написав тобі в Telegram.', true);
               } catch (e) { /* мережа — спробуємо ще */ }
             };
             tgTimer = setInterval(check, 2500);
             document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
-          }).catch(() => tgSay('Не вдалося створити посилання — перевір інтернет і спробуй ще.'));
+          }).catch(() => tgSay('Не вдалося створити посилання. Перевір інтернет і спробуй ще раз.'));
         });
         const off = form.querySelector('[data-tg-off]');
-        if (off) off.addEventListener('click', () => { form.tgChat.value = ''; s.tgChat = ''; LP.save({ render: false }); off.remove(); tgSay('Відключено — нагадувань більше не буде.'); });
+        if (off) off.addEventListener('click', () => { form.tgChat.value = ''; s.tgChat = ''; LP.save({ render: false }); off.remove(); tgSay('Відключено. Нагадувань більше не буде.'); });
         form.querySelector('[data-tour-again]').addEventListener('click', () => { LP.closeModal(); setTimeout(LP.startTour, 200); });
       },
       onSubmit: (form) => {

@@ -50,7 +50,7 @@ window.LP = window.LP || {};
               </div>
               ${grid(h)}
             </article>`;
-        }).join('')}</div>` : `<p class="empty-note">Звичок поки немає. Додай тут або в тижні (+ біля «Звички»).</p>`}
+        }).join('')}</div>` : `<p class="empty-note">Звичок поки немає. Додай тут або на «Тижні».</p>`}
       </section>`;
   }
   function bind(root) {

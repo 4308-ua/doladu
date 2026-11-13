@@ -47,7 +47,7 @@ window.LP = window.LP || {};
     const problems = LP.validateGoal(g);
     const weekGoals = LP.data.goals.filter((w) => w.level === 'week' && w.parentId === g.id);
     const gt = LP.goalTime(g);
-    const spent = `<span class="${gt.minutes ? 'gt-on' : ''}" title="Години виконаних справ цілі (рахуються, коли ставиш галочку в розкладі)">ВИТРАЧЕНО ${u.fmtHours(gt.minutes).toUpperCase()}${gt.planned ? ` · ЗАПЛАНОВАНО ${u.fmtHours(gt.planned).toUpperCase()}` : ''}</span>`;
+    const spent = `<span class="${gt.minutes ? 'gt-on' : ''}" title="Години виконаних справ цієї цілі. Рахуються, коли ставиш галочку в розкладі">ВИТРАЧЕНО ${u.fmtHours(gt.minutes).toUpperCase()}${gt.planned ? ` · ЗАПЛАНОВАНО ${u.fmtHours(gt.planned).toUpperCase()}` : ''}</span>`;
     const looseHtml = gt.loose.length ? `
       <div class="goal-loose">
         <div class="label">ЗАГАЛОМ ДЛЯ ЦІЛІ — БЕЗ ПІДЦІЛІ</div>
@@ -100,7 +100,7 @@ window.LP = window.LP || {};
           <label class="field field-narrow"><span>Сума${unit ? ', ' + u.esc(unit) : ''}</span><input type="number" name="v" step="any" placeholder="1000" inputmode="decimal"></label>
           <label class="field"><span>Нотатка (необовʼязково)</span><input type="text" name="note" maxlength="80" placeholder="зарплата, повернув борг…"></label>
         </div>
-        <p class="hint">Мінус — якщо зняв або витратив.</p>
+        <p class="hint">Постав мінус, якщо зняв або витратив.</p>
         ${log.length ? `<div class="entry-log"><span class="label">ІСТОРІЯ</span><ul>${log.map((e) => `
           <li><span class="mono">${u.fmtDay(e.date).toUpperCase()}</span><span class="${e.v < 0 ? 'neg' : ''}">${e.v > 0 ? '+' : ''}${LP.fmtNum(e.v)}${unit ? ' ' + u.esc(unit) : ''}</span><span class="muted">${u.esc(e.note || '')}</span>
           <button type="button" class="icon-btn small" data-del-entry="${e.id}" aria-label="Прибрати внесок">✕</button></li>`).join('')}</ul></div>` : ''}`,
@@ -138,8 +138,8 @@ window.LP = window.LP || {};
       <div class="page">
         ${!longs.length && !shorts.length ? `
           <div class="intro">
-            <p>Ціль — це опис (мінімум ${LP.MIN_DESCRIPTION} символів) і мета: один раз (галочка), скільки разів, годин чи свого числа — гривень, сторінок, кілометрів. Підцілі — за бажанням, кожна зі своєю метою й вагою 1–100.
-            Справи в планері, привʼязані до цілі чи підцілі, рухають прогрес.</p>
+            <p>Опиши ціль (від ${LP.MIN_DESCRIPTION} символів) і обери, як рахувати прогрес: галочкою, разами, годинами чи своїм числом, наприклад гривнями або кілометрами. Ціль можна розбити на підцілі.
+            Справи з розкладу, привʼязані до цілі, рухають прогрес самі.</p>
             <button type="button" class="link-btn" data-sample>Завантажити приклад</button>
           </div>` : ''}
         ${section('ДОВГОСТРОКОВІ', 'long', longs)}

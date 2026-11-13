@@ -106,7 +106,7 @@ window.LP = window.LP || {};
       keepSession(await api('/auth/v1/token?grant_type=refresh_token', { method: 'POST', body: { refresh_token: auth.refresh_token } }));
       return auth.access_token;
     } catch (e) {
-      if (e.status === 400 || e.status === 401) { forget(); gate('login', { note: 'Сесія завершилась — увійди ще раз.' }); }
+      if (e.status === 400 || e.status === 401) { forget(); gate('login', { note: 'Сесія завершилась. Увійди ще раз.' }); }
       throw e;
     }
   }
@@ -231,8 +231,8 @@ window.LP = window.LP || {};
     LP.modal({
       title: 'Що лишити?',
       submitText: 'Взяти з хмари',
-      body: `<p>У хмарі вже є планер (збережено ${when.toLocaleDateString('uk-UA')} о ${when.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}), а на цьому пристрої — свої дані.</p>
-        <p class="hint">«Взяти з хмари» — цей пристрій отримає дані з хмари. «Відправити ці» — дані з цього пристрою замінять хмарні. Про всяк випадок спершу можна зробити ЕКСПОРТ.</p>`,
+      body: `<p>У хмарі вже є планер (збережено ${when.toLocaleDateString('uk-UA')} о ${when.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}), а на цьому пристрої свої дані.</p>
+        <p class="hint">«Взяти з хмари» замінить дані на цьому пристрої хмарними. «Відправити ці» замінить хмарні дані тими, що тут. Про всяк випадок спершу зроби експорт.</p>`,
       extra: [{ text: 'Відправити ці', onClick: () => { meta.remoteAt = r.at; meta.dirty = true; meta.editAt = Date.now(); saveMeta(); push().then(afterReady); } }],
       onSubmit: () => { apply(r, 'ДАНІ З ХМАРИ НА МІСЦІ'); if (!isEncrypted(row)) push(); afterReady(); },
     });
@@ -274,20 +274,20 @@ window.LP = window.LP || {};
     const V = {
       login: {
         h: 'Вхід',
-        p: 'Особистий планер: день, тиждень, рік, цілі й баланс. Твої дані шифруються на твоєму пристрої — їх не бачить ніхто, крім тебе.',
+        p: 'Особистий планер: день, тиждень, рік, цілі й баланс. Дані шифруються на твоєму пристрої, тож їх не бачить ніхто, крім тебе.',
         f: `${EMAIL(opts.email)}${field('password', 'Пароль', 'password', 'autocomplete="current-password"')}`,
         b: '<button type="submit" class="btn btn-primary" data-act="in">УВІЙТИ</button><button type="button" class="btn" data-go="signup">СТВОРИТИ АКАУНТ</button>',
         l: '<button type="button" class="link-btn" data-go="forgot">Забув пароль?</button>',
       },
       signup: {
         h: 'Новий акаунт',
-        p: 'Пароль — від 8 символів. Він же відкриває твої зашифровані дані, тож обери надійний і запамʼятай.',
+        p: 'Пароль від 8 символів. Ним же відкриваються твої зашифровані дані, тож обери надійний і запамʼятай його.',
         f: `${EMAIL(opts.email)}${field('password', 'Пароль', 'password', 'autocomplete="new-password"')}${field('password2', 'Ще раз пароль', 'password', 'autocomplete="new-password"')}`,
         b: '<button type="submit" class="btn btn-primary" data-act="up">СТВОРИТИ</button><button type="button" class="btn" data-go="login">У МЕНЕ Є АКАУНТ</button>',
       },
       forgot: {
         h: 'Відновити пароль',
-        p: 'Надішлю на пошту посилання для нового пароля. Відкрий його на будь-якому пристрої.',
+        p: 'На пошту прийде посилання для нового пароля. Відкрити його можна на будь-якому пристрої.',
         f: EMAIL(opts.email),
         b: '<button type="submit" class="btn btn-primary" data-act="forgot">НАДІСЛАТИ ЛИСТ</button><button type="button" class="btn" data-go="login">НАЗАД</button>',
       },
@@ -299,7 +299,7 @@ window.LP = window.LP || {};
       },
       unlock: {
         h: 'Розблокувати',
-        p: `Введи пароль від ${esc(auth ? auth.user.email : '')} — ним відкриваються твої зашифровані дані на цьому пристрої.`,
+        p: `Введи пароль від ${esc(auth ? auth.user.email : '')}. Ним відкриваються твої зашифровані дані на цьому пристрої.`,
         f: field('password', 'Пароль', 'password', 'autocomplete="current-password"'),
         b: '<button type="submit" class="btn btn-primary" data-act="unlock">ВІДКРИТИ</button><button type="button" class="btn" data-act="out">ВИЙТИ</button>',
         l: '<button type="button" class="link-btn" data-go="forgot">Забув пароль?</button>',
@@ -307,15 +307,15 @@ window.LP = window.LP || {};
       code: {
         h: 'Код відновлення',
         p: opts.why === 'wrongkey'
-          ? 'Пароль правильний, але ключ даних у хмарі загорнутий іншим паролем. Введи код відновлення, який ти зберіг при створенні акаунта.'
-          : 'Пароль змінено через пошту, тож старий ключ ним не відкрити. Введи код відновлення, який ти зберіг при створенні акаунта.',
+          ? 'Пароль правильний, але дані в хмарі закриті іншим паролем. Введи код відновлення, який ти зберіг, коли створював акаунт.'
+          : 'Пароль змінено через пошту, тому дані ним ще не відкрити. Введи код відновлення, який ти зберіг, коли створював акаунт.',
         f: field('code', 'Код (32 символи)', 'text', 'autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="ABCD-EFGH-…"'),
         b: '<button type="submit" class="btn btn-primary" data-act="code">ВІДКРИТИ ДАНІ</button>',
         l: '<button type="button" class="link-btn danger" data-act="fresh">Немає коду — почати з нуля</button>',
       },
       showcode: {
         h: 'Твій код відновлення',
-        p: 'Твої дані зашифровані: без пароля їх не прочитає ніхто, навіть адміністратор. Якщо забудеш пароль — дані відкриє тільки цей код. Збережи його (у нотатки, менеджер паролів чи на папір) і нікому не показуй.',
+        p: 'Твої дані зашифровані. Без пароля їх не прочитає ніхто, навіть адміністратор. Якщо забудеш пароль, дані відкриє тільки цей код. Збережи його в нотатках, менеджері паролів чи на папері й нікому не показуй.',
         f: `<div class="code-box mono">${esc(opts.code || '')}</div>
             <div class="code-acts"><button type="button" class="btn btn-sm" data-act="copy">КОПІЮВАТИ</button></div>
             <label class="check"><input type="checkbox" name="saved"> Я зберіг код</label>`,
@@ -350,11 +350,11 @@ window.LP = window.LP || {};
   function human(err) {
     const m = (err && err.message) || '';
     if (/invalid login|invalid_credentials|invalid grant/i.test(m)) return 'Пошта або пароль не підходять.';
-    if (/not confirmed/i.test(m)) return 'Пошту ще не підтверджено — натисни посилання в листі, потім увійди.';
-    if (/already registered|already exists/i.test(m)) return 'Такий акаунт уже є — просто увійди.';
-    if (/rate|limit|seconds/i.test(m)) return 'Забагато спроб — зачекай хвилину.';
+    if (/not confirmed/i.test(m)) return 'Пошту ще не підтверджено. Відкрий посилання з листа, потім увійди.';
+    if (/already registered|already exists/i.test(m)) return 'Такий акаунт уже є. Просто увійди.';
+    if (/rate|limit|seconds/i.test(m)) return 'Забагато спроб. Зачекай хвилину.';
     if (/same.*password|different from the old/i.test(m)) return 'Новий пароль має відрізнятися від старого.';
-    if (/weak|short|at least/i.test(m)) return 'Пароль заслабкий — довший, з цифрами чи символами.';
+    if (/weak|short|at least/i.test(m)) return 'Пароль заслабкий. Зроби його довшим, додай цифри чи символи.';
     if (m === 'Failed to fetch') return 'Немає звʼязку з сервером. Перевір інтернет.';
     return m || 'Щось пішло не так.';
   }
@@ -366,7 +366,7 @@ window.LP = window.LP || {};
     try {
       if ((a === 'in' || a === 'up' || a === 'forgot') && !/^\S+@\S+\.\S+$/.test(email)) return say(form, 'Перевір пошту.');
       if (a === 'up' || a === 'newpass') {
-        if (pw.length < 8) return say(form, 'Пароль — щонайменше 8 символів.');
+        if (pw.length < 8) return say(form, 'У паролі має бути щонайменше 8 символів.');
         if (pw !== form.password2.value) return say(form, 'Паролі не збігаються.');
       }
       if ((a === 'in' || a === 'unlock') && !pw) return say(form, 'Введи пароль.');
@@ -383,7 +383,7 @@ window.LP = window.LP || {};
         else gate('msg', { h: 'Перевір пошту', p: `На ${esc(email)} прийшов лист. Натисни в ньому посилання, а потім увійди з паролем.` });
       } else if (a === 'forgot') {
         await api('/auth/v1/recover' + redirect(), { method: 'POST', body: { email } });
-        gate('msg', { h: 'Лист надіслано', p: `Якщо акаунт ${esc(email)} існує, туди прийшов лист із посиланням. Відкрий його й задай новий пароль. Не бачиш листа — глянь у «Спам».` });
+        gate('msg', { h: 'Лист надіслано', p: `Якщо акаунт ${esc(email)} існує, туди прийшов лист із посиланням. Відкрий його й задай новий пароль. Якщо листа не видно, глянь у «Спам».` });
       } else if (a === 'unlock') {
         keepSession(await passwordGrant(email, pw));
         await afterLogin(pw);
@@ -395,7 +395,7 @@ window.LP = window.LP || {};
         try { await setDek(await unwrapWith(normCode(form.code.value), row.data.kr)); } catch (e) { lock(false); return say(form, 'Код не підходить. Перевір літери й цифри.'); }
         await rekeyAndSync(row, opts.password);
       } else if (a === 'fresh') {
-        if (!confirm('Почати з нуля? Зашифровані дані в хмарі буде замінено порожнім планером. Їх уже не відновити.')) return lock(false);
+        if (!confirm('Почати з нуля? Дані в хмарі заміняться порожнім планером. Відновити їх не вийде.')) return lock(false);
         if (!confirm('Точно? Це назавжди.')) return lock(false);
         localStorage.removeItem(DATA_KEY);
         LP.reload();
@@ -405,7 +405,7 @@ window.LP = window.LP || {};
         meta.remoteAt = null; saveMeta();
         gate('showcode', { code, row: null, fresh: true });
       } else if (a === 'copy') {
-        try { await navigator.clipboard.writeText(opts.code); say(form, 'Скопійовано.', false); } catch (e) { say(form, 'Не вдалося скопіювати — виділи код і скопіюй вручну.'); }
+        try { await navigator.clipboard.writeText(opts.code); say(form, 'Скопійовано.', false); } catch (e) { say(form, 'Не вдалося скопіювати. Виділи код і скопіюй вручну.'); }
       } else if (a === 'saved') {
         if (!form.saved.checked) { lock(false); return say(form, 'Спершу збережи код і постав галочку.'); }
         if (opts.fresh) { ungate(); meta.dirty = true; meta.editAt = Date.now(); saveMeta(); await upload(); setStatus('ok'); afterReady(); }
@@ -446,7 +446,7 @@ window.LP = window.LP || {};
   }
 
   async function signOut() {
-    if (meta.dirty && dek) { try { await upload(); } catch (e) { if (!confirm('Не всі зміни встигли піти в хмару. Все одно вийти? Невідправлене пропаде.')) return; } }
+    if (meta.dirty && dek) { try { await upload(); } catch (e) { if (!confirm('Не всі зміни встигли дійти до хмари. Вийти все одно? Невідправлене зникне.')) return; } }
     try { await api('/auth/v1/logout', { method: 'POST', token: await token() }); } catch (e) {}
     forget();
     localStorage.removeItem(DATA_KEY);
@@ -463,8 +463,8 @@ window.LP = window.LP || {};
     b.classList.remove('is-off', 'is-ok', 'is-busy', 'is-offline', 'is-error');
     b.classList.add('is-' + status);
     b.classList.toggle('is-spin', spinning);
-    b.title = status === 'error' ? 'Не вдалося синхронізувати — натисни, щоб спробувати ще' : status === 'offline' ? 'Немає інтернету — відправлю, щойно зʼявиться' : 'Акаунт і синхронізація · ' + (auth ? auth.user.email : '');
-    b.setAttribute('aria-label', b.title);
+    b.dataset.tip = status === 'error' ? 'Не вдалося синхронізувати. Натисни, щоб спробувати ще раз' : status === 'offline' ? 'Немає інтернету. Зміни підуть у хмару, щойно він зʼявиться' : 'Акаунт і синхронізація · ' + (auth ? auth.user.email : '');
+    b.setAttribute('aria-label', b.dataset.tip);
   }
   function spin(ms = 1200) { spinUntil = Date.now() + ms; paint(); setTimeout(paint, ms + 30); }
   function fmtAgo(ms) {
@@ -481,7 +481,7 @@ window.LP = window.LP || {};
       submitText: 'Синхронізувати зараз',
       body: `<p class="mono sync-who">${esc(auth.user.email)}</p>
         <p>Синхронізовано: <b>${fmtAgo(meta.lastOk)}</b>${status === 'error' ? ' · <span class="warn">остання спроба не вдалася</span>' : status === 'offline' ? ' · немає інтернету' : ''}.</p>
-        <p class="hint">🔒 Дані шифруються на пристрої — у хмарі лише шифр. ${LP.data.settings.tgChat ? 'Для нагадувань у Telegram у хмару йде розклад на 3 тижні (назви й час справ).' : ''}</p>
+        <p class="hint">🔒 Дані шифруються на пристрої. У хмарі лежить лише шифр. ${LP.data.settings.tgChat ? 'Для нагадувань у Telegram у хмару йдуть розклад і дати з «Року» на 3 тижні.' : ''}</p>
         <div class="acc-acts">
           <button type="button" class="btn btn-sm" data-acc="pass">ЗМІНИТИ ПАРОЛЬ</button>
           <button type="button" class="btn btn-sm" data-acc="code">НОВИЙ КОД ВІДНОВЛЕННЯ</button>
@@ -510,7 +510,7 @@ window.LP = window.LP || {};
       onSubmit: (form) => {
         const note = form.querySelector('.sync-note');
         const pw = form.password.value;
-        if (pw.length < 8) { note.textContent = 'Пароль — щонайменше 8 символів.'; return false; }
+        if (pw.length < 8) { note.textContent = 'У паролі має бути щонайменше 8 символів.'; return false; }
         if (pw !== form.password2.value) { note.textContent = 'Паролі не збігаються.'; return false; }
         note.textContent = 'Змінюю…';
         (async () => {
@@ -551,9 +551,9 @@ window.LP = window.LP || {};
     const btn = document.getElementById('btn-sync');
     if (btn) btn.addEventListener('click', () => (status === 'error' ? pull(true) : LP.openSync()));
     const link = fromHash();
-    if (link && link.error) return gate('login', { note: /expired|invalid/i.test(link.error) ? 'Посилання застаріло — надішли новий лист.' : link.error });
+    if (link && link.error) return gate('login', { note: /expired|invalid/i.test(link.error) ? 'Посилання застаріло. Надішли новий лист.' : link.error });
     if (link && link.type === 'recovery') return gate('newpass');
-    if (!auth) return gate('login', link && link.type === 'signup' ? { note: 'Пошту підтверджено — тепер увійди.', warn: false } : {});
+    if (!auth) return gate('login', link && link.type === 'signup' ? { note: 'Пошту підтверджено. Тепер увійди.', warn: false } : {});
     const local = read(DEK_KEY);
     if (!local || (link && link.type === 'signup')) return gate('unlock');
     await setDek(unb64(local), false);

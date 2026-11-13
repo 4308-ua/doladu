@@ -120,8 +120,8 @@ window.LP = window.LP || {};
       const { a, w, h } = g;
       const past = m.end < today;
       arcs += `<path class="yr-arc ${past ? 'is-past' : ''}" data-arc="${m.id}" data-k="m:${m.id}" d="${arcD(a, w, h)}" data-mark="${m.id}"><title>${u.esc(m.title)} · ${u.fmtDay(m.start)} — ${u.fmtDay(m.end)}</title></path>`;
-      arcEnds += `<circle class="yr-arc-end" data-arcend="${m.id}" data-end="s" cx="${a}" cy="${LY}" r="7"><title>Тягни — змінити початок</title></circle><circle class="yr-arc-end" data-arcend="${m.id}" data-end="e" cx="${a + w}" cy="${LY}" r="7"><title>Тягни — змінити кінець</title></circle>`;
-      if (!mob) arcLabels += `<button type="button" class="yr-tag yr-arc-tag ${past ? 'is-past' : ''}" data-mark="${m.id}" data-k="m:${m.id}" data-drag="arc" data-key="${m.id}" style="left:${a + w / 2}px;top:${LY - h}px" title="${u.esc(m.title)}${m.note ? ' — ' + u.esc(m.note) : ''} · тягни — посунути період і висоту дуги">${u.esc(m.title)}<small>${u.fmtDay(m.start)} — ${u.fmtDay(m.end)}</small></button>`;
+      arcEnds += `<circle class="yr-arc-end" data-arcend="${m.id}" data-end="s" cx="${a}" cy="${LY}" r="7"><title>Перетягни, щоб змінити початок</title></circle><circle class="yr-arc-end" data-arcend="${m.id}" data-end="e" cx="${a + w}" cy="${LY}" r="7"><title>Перетягни, щоб змінити кінець</title></circle>`;
+      if (!mob) arcLabels += `<button type="button" class="yr-tag yr-arc-tag ${past ? 'is-past' : ''}" data-mark="${m.id}" data-k="m:${m.id}" data-drag="arc" data-key="${m.id}" style="left:${a + w / 2}px;top:${LY - h}px" title="${u.esc(m.title)}${m.note ? ' — ' + u.esc(m.note) : ''} · перетягни, щоб посунути період">${u.esc(m.title)}<small>${u.fmtDay(m.start)} — ${u.fmtDay(m.end)}</small></button>`;
     });
 
     // --- точки на лінії; підписи до них живуть у колонках місяців під лінією
@@ -130,12 +130,12 @@ window.LP = window.LP || {};
     const entries = [];
     points.forEach((m) => {
       const x = xOf(m.start), past = m.start < today;
-      dots += `<circle class="yr-pin ${past ? 'is-past' : ''}" data-pindot="${m.id}" data-k="m:${m.id}" cx="${x}" cy="${LY}" r="4.5"/><circle class="yr-pin-hit" data-pin="${m.id}" data-k="m:${m.id}" cx="${x}" cy="${LY}" r="9"><title>${u.esc(m.title)} · ${wd(m.start)} ${u.fmtDay(m.start)} · тягни — перенести</title></circle>`;
-      entries.push({ date: m.start, k: 'm:' + m.id, cls: 't-mark', attr: `data-mark="${m.id}"`, text: m.title, tip: (m.note ? m.note + ' · ' : '') + 'клік — змінити' });
+      dots += `<circle class="yr-pin ${past ? 'is-past' : ''}" data-pindot="${m.id}" data-k="m:${m.id}" cx="${x}" cy="${LY}" r="4.5"/><circle class="yr-pin-hit" data-pin="${m.id}" data-k="m:${m.id}" cx="${x}" cy="${LY}" r="9"><title>${u.esc(m.title)} · ${wd(m.start)} ${u.fmtDay(m.start)} · перетягни, щоб перенести</title></circle>`;
+      entries.push({ date: m.start, k: 'm:' + m.id, cls: 't-mark', attr: `data-mark="${m.id}"`, text: m.title, tip: (m.note ? m.note + ' · ' : '') + 'натисни, щоб змінити' });
     });
     spans.forEach((m) => {
       const start = m.start < from ? from : m.start;
-      entries.push({ date: start, k: 'm:' + m.id, cls: 't-span', attr: `data-mark="${m.id}"`, text: m.title, sub: `до ${u.fmtDay(m.end)}`, past: m.end < today, tip: 'клік — відкрити період' });
+      entries.push({ date: start, k: 'm:' + m.id, cls: 't-span', attr: `data-mark="${m.id}"`, text: m.title, sub: `до ${u.fmtDay(m.end)}`, past: m.end < today, tip: 'натисни, щоб відкрити період' });
     });
     yl.forEach((it) => {
       const x = xOf(it.date), past = it.date < today;
@@ -157,19 +157,19 @@ window.LP = window.LP || {};
     }
     let ticks = '';
     segs.forEach((sg, i) => { if (i) ticks += `<line class="yr-tick" x1="${sg.x0}" y1="${LY - 7}" x2="${sg.x0}" y2="${LY + 7}"/>`; });
+    const isPart = (sg) => sg.to !== (sg.m === 12 ? `${sg.y + 1}-01-01` : `${sg.y}-${pad(sg.m + 1)}-01`) || sg.from.slice(8) !== '01';
     const cols = [];
     let lead = [];
     segs.forEach((sg) => {
-      if (sg.x1 - sg.x0 >= 72 || segs.length < 3) { cols.push({ x0: lead.length ? lead[0].x0 : sg.x0, x1: sg.x1, groups: lead.concat(sg) }); lead = []; }
+      // зливаємо лише неповний місяць на краю року, якщо йому тісно; повні місяці завжди мають свою колонку
+      if (sg.x1 - sg.x0 >= 96 || !isPart(sg) || segs.length < 3) { cols.push({ x0: lead.length ? lead[0].x0 : sg.x0, x1: sg.x1, groups: lead.concat(sg) }); lead = []; }
       else if (cols.length) { const c = cols[cols.length - 1]; c.groups.push(sg); c.x1 = sg.x1; }
       else lead.push(sg);
     });
     const itemHtml = (e) => {
       const past = e.past != null ? e.past : e.date < today;
-      const long = !mob && String(e.text).split(/[\s-]+/).some((w) => w.length >= 9);
-      return `<button type="button" class="yr-it ${e.cls} ${long ? 'is-long' : ''} ${past ? 'is-past' : ''} ${e.date === today ? 'is-today' : ''}" data-k="${e.k}" ${e.attr} title="${wd(e.date)}, ${u.fmtDate(e.date)}${e.tip ? ' · ' + u.esc(e.tip) : ''}"><span class="yr-it-d">${Number(e.date.slice(8))}</span><span class="yr-it-t">${u.esc(e.text)}${e.sub ? `<small>${e.sub}</small>` : ''}</span></button>`;
+      return `<button type="button" class="yr-it ${e.cls} ${past ? 'is-past' : ''} ${e.date === today ? 'is-today' : ''}" data-k="${e.k}" ${e.attr} title="${wd(e.date)}, ${u.fmtDate(e.date)}${e.tip ? ' · ' + u.esc(e.tip) : ''}"><span class="yr-it-d">${Number(e.date.slice(8))}</span><span class="yr-it-t">${u.esc(e.text)}${e.sub ? `<small> · ${e.sub}</small>` : ''}</span></button>`;
     };
-    const isPart = (sg) => sg.to !== (sg.m === 12 ? `${sg.y + 1}-01-01` : `${sg.y}-${pad(sg.m + 1)}-01`) || sg.from.slice(8) !== '01';
     const itemsOf = (sg) => entries.filter((e) => e.date >= sg.from && e.date < sg.to);
     const colsHtml = mob ? '' : cols.map((c) => `<div class="yr-mcol" style="left:${c.x0}px;width:${c.x1 - c.x0}px">${c.groups.map((sg) => {
       const cur = nowIn && today >= sg.from && today < sg.to, part = isPart(sg);
@@ -183,7 +183,7 @@ window.LP = window.LP || {};
     };
     const agAhead = segs.filter((sg) => sg.to > today).map(agGroup).join('');
     const agPast = segs.filter((sg) => sg.to <= today).map(agGroup).join('');
-    const agenda = !mob ? '' : `<div class="yr-agenda">${agAhead || '<p class="yr-empty">Попереду поки нічого. Тап по лінії або «+ Позначка».</p>'}${agPast ? `<details class="yr-past"><summary class="mono">РАНІШЕ ЦЬОГО РОКУ</summary>${agPast}</details>` : ''}</div>`;
+    const agenda = !mob ? '' : `<div class="yr-agenda">${agAhead || '<p class="yr-empty">Попереду поки нічого. Натисни на лінію або «+ Позначка».</p>'}${agPast ? `<details class="yr-past"><summary class="mono">РАНІШЕ ЦЬОГО РОКУ</summary>${agPast}</details>` : ''}</div>`;
 
     // --- лінія: пройдене суцільне, попереду — крапками
     const splitX = nowIn ? nowX : today >= to ? PADL + span : PADL;
@@ -221,7 +221,7 @@ window.LP = window.LP || {};
             ? `<button type="button" class="link-btn mono" data-bday>ДЕНЬ НАРОДЖЕННЯ ${u.fmtDate(L.birthday).toUpperCase()}${off === 0 ? ` · ЧЕРЕЗ ${bdLeft} ДН.` : ''}</button>`
             : '<button type="button" class="btn btn-primary" data-bday>ВКАЖИ СВІЙ ДЕНЬ НАРОДЖЕННЯ</button>'}
         </div>
-        ${L.birthday ? '' : '<p class="hint yr-hint">Поки лінія — це календарний рік. З днем народження вона почнеться й закінчиться в нього.</p>'}
+        ${L.birthday ? '' : '<p class="hint yr-hint">Поки що лінія показує календарний рік. Вкажи день народження, і вона йтиме від нього до наступного.</p>'}
         <div class="yr-scroll"><div class="yr-stage" style="height:${LY + 120}px;width:${W}px">
           <svg class="yr-svg" width="${W}" height="${LY + 120}" viewBox="0 0 ${W} ${LY + 120}">
             <rect class="yr-hit" x="${PADL - 8}" y="${LY - 22}" width="${span + 16}" height="36"/>
@@ -231,7 +231,7 @@ window.LP = window.LP || {};
             <line class="yr-guide" x1="0" y1="${LY - 22}" x2="0" y2="${LY + 14}" hidden/>
           </svg>
           ${arcLabels}
-          ${mob ? '' : `<div class="yr-months" style="top:${LY + 16}px">${colsHtml}</div>`}
+          ${mob ? '' : `<div class="yr-months ${span / 12 < 130 ? 'is-tight' : ''}" style="top:${LY + 16}px">${colsHtml}</div>`}
           ${nowIn ? `<span class="yr-now-label mono" style="left:${nowX}px;top:${LY - 30}px">ЗАРАЗ</span>` : ''}
           <span class="yr-tip mono" hidden></span>
           ${pending ? `
@@ -239,12 +239,12 @@ window.LP = window.LP || {};
               <div class="yr-pop-day"><button type="button" class="sq-btn" data-pend-day="-1" aria-label="На день раніше">‹</button><span class="mono yr-pop-date">${wd(pending.date)}, ${u.fmtDate(pending.date).toUpperCase()}</span><button type="button" class="sq-btn" data-pend-day="1" aria-label="На день пізніше">›</button></div>
               <input type="text" class="yr-pop-input" maxlength="60" placeholder="Що тут буде?" aria-label="Назва позначки" value="${u.esc(pending.title || '')}">
               <div class="yr-pop-row"><button type="button" class="btn btn-primary btn-sm" data-pend-save>ПОЗНАЧКА</button><button type="button" class="btn btn-sm" data-pend-cancel>✕</button></div>
-              <p class="hint">Або клікни ще раз на лінії — вийде період.</p>
+              <p class="hint">Натисни на лінію ще раз, і вийде період.</p>
             </div>` : ''}
         </div>
         </div>
         ${agenda}
-        <p class="hint yr-legend">${mob ? 'Лінія — весь рік одним поглядом. Тап по ній — позначка (дату можна підправити стрілками), ще тап — період.' : 'Клік по лінії — позначка, ще клік — період (або протягни). Точку й дугу можна тягати — зміниться дата. Наведи на рядок — підсвітиться його точка.'}</p>
+        <p class="hint yr-legend">${mob ? 'Лінія показує весь рік. Натисни на неї, щоб поставити позначку, і ще раз, щоб вийшов період.' : 'Натисни на лінію, щоб поставити позначку, і ще раз, щоб вийшов період. Точку й дугу можна перетягнути. Наведи на рядок, і підсвітиться його точка.'}</p>
         <div class="yr-cols">
           <div class="yr-col">
             <div class="side-head"><span class="label">НАЙБЛИЖЧЕ</span><span class="mono muted">120 ДН.</span></div>
@@ -252,7 +252,7 @@ window.LP = window.LP || {};
           </div>
           <div class="yr-col">
             <div class="side-head"><span class="label">ДНІ НАРОДЖЕННЯ Й РІЧНИЦІ</span><button type="button" class="btn btn-sm" data-add-date>+ ДОДАТИ</button></div>
-            <ul class="yr-list">${L.dates.slice().sort((a, b) => (a.md < b.md ? -1 : 1)).map((d) => `<li><button type="button" class="yr-row" data-date-id="${d.id}"><span class="mono">${Number(d.md.slice(3))} ${u.fmtDay('2000-' + d.md).split(' ')[1].toUpperCase()}</span><span>${u.esc(d.name)}</span><span class="mono muted">${d.kind === 'bday' ? 'ДН' : d.kind === 'anniv' ? 'РІЧНИЦЯ' : ''}</span></button></li>`).join('') || '<li class="muted">Додай близьких — їхні дні народження стануть під лінією.</li>'}</ul>
+            <ul class="yr-list">${L.dates.slice().sort((a, b) => (a.md < b.md ? -1 : 1)).map((d) => `<li><button type="button" class="yr-row" data-date-id="${d.id}"><span class="mono">${Number(d.md.slice(3))} ${u.fmtDay('2000-' + d.md).split(' ')[1].toUpperCase()}</span><span>${u.esc(d.name)}</span><span class="mono muted">${d.kind === 'bday' ? 'ДН' : d.kind === 'anniv' ? 'РІЧНИЦЯ' : ''}</span></button></li>`).join('') || '<li class="muted">Додай близьких, і їхні дні народження зʼявляться під лінією.</li>'}</ul>
           </div>
           <div class="yr-col">
             <div class="side-head"><span class="label">СВЯТА</span></div>
@@ -531,7 +531,7 @@ window.LP = window.LP || {};
         <div class="row">
           <label class="field"><span>День</span><select name="day">${Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}" ${i + 1 === dd ? 'selected' : ''}>${i + 1}</option>`).join('')}</select></label>
           <label class="field"><span>Місяць</span><select name="month">${u.MONTHS.map((n, i) => `<option value="${i + 1}" ${i + 1 === mm ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
-          <label class="field"><span>Рік (як знаєш)</span><input type="number" name="year" min="1900" max="2100" value="${d.year || ''}" placeholder="—"></label>
+          <label class="field"><span>Рік (якщо знаєш)</span><input type="number" name="year" min="1900" max="2100" value="${d.year || ''}" placeholder="—"></label>
         </div>`,
       extra: isNew ? [] : [{ text: 'Видалити', className: 'btn-danger', onClick: () => { L.dates = L.dates.filter((x) => x.id !== d.id); LP.save(); } }],
       onSubmit: (form) => {
@@ -611,7 +611,7 @@ window.LP = window.LP || {};
       extra: [{ text: 'Видалити', className: 'btn-danger', onClick: () => { plan.items = plan.items.filter((x) => x.id !== it.id); LP.save(); } }],
       onSubmit: (form) => {
         const text = form.text.value.trim(), a = form.start.value, b = form.end.value || null;
-        if (!text || !a) return LP.showErrors(form, ['Напиши, що, і вкажи дату.']), false;
+        if (!text || !a) return LP.showErrors(form, ['Напиши назву й вкажи дату.']), false;
         Object.assign(it, { text, start: a, end: b && b > a ? b : null });
         LP.save();
       },
@@ -661,7 +661,7 @@ window.LP = window.LP || {};
           <div class="pl-days">${dayList.map((d, i) => `<button type="button" class="pl-day ${d === today ? 'is-today' : ''} ${u.weekday(d) >= 5 ? 'is-we' : ''} ${sa && d >= (sa < sb ? sa : sb) && d <= (sa < sb ? sb : sa) ? 'is-sel' : ''}" data-d="${d}" title="${u.fmtDate(d)}">${lab(d, i)}</button>`).join('')}</div>
           <div class="pl-bars" style="height:${Math.max(lanes.length, 1) * 34 + 6}px">${items.map((it) => `
             <button type="button" class="pl-bar ${it.end ? '' : 'is-one'} ${(it.end || it.start) < today ? 'is-past' : ''}" data-it="${it.id}" style="left:calc(${pos.get(it.id).a} / var(--n) * 100%);width:calc(${pos.get(it.id).b - pos.get(it.id).a + 1} / var(--n) * 100% - 4px);min-width:${pos.get(it.id).need}px;top:${pos.get(it.id).l * 34 + 4}px" title="${u.esc(rangeLabel(it.start, it.end))} · ${u.esc(it.text)}">${u.esc(it.text)}</button>`).join('')}
-            ${!items.length ? '<span class="pl-empty">Тут зʼявляться смуги: тиць по днях угорі або додай нижче.</span>' : ''}
+            ${!items.length ? '<span class="pl-empty">Тут зʼявляться смуги. Натисни на дні вгорі або додай нижче.</span>' : ''}
           </div>
         </div></div>
 
@@ -672,7 +672,7 @@ window.LP = window.LP || {};
           <input type="text" name="t" maxlength="80" placeholder="що: «Карпати», «клуб», «вдома, відпочиваю»" aria-label="Що">
           <button type="submit" class="btn btn-primary btn-sm">ДОДАТИ</button>
         </form>
-        <p class="hint pl-hint">Тиць по дню — початок, ще тиць — кінець. Тиць по смузі — змінити.</p>
+        <p class="hint pl-hint">Натисни на перший день, потім на останній. Натисни на смугу, щоб змінити її.</p>
 
         <div class="pp-grid">
           <ol class="pl-list">${items.map((it) => `<li><button type="button" data-it="${it.id}"><span class="mono">${u.esc(rangeLabel(it.start, it.end)).toUpperCase()}</span><span>${u.esc(it.text)}</span></button></li>`).join('') || ''}</ol>

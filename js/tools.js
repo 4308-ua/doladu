@@ -73,7 +73,7 @@ window.LP = window.LP || {};
         </div>
         <div class="cp-dow"><span class="cp-num">РОЗ</span>${u.DAYS_SHORT.map((d) => `<span>${d.toUpperCase()}</span>`).join('')}</div>
         ${rows}
-        <div class="cp-foot"><button type="button" class="link-btn" data-now>ЦЕЙ ТИЖДЕНЬ</button><span class="mono muted">КЛІК ПО РЯДКУ — ВІДКРИТИ ТИЖДЕНЬ</span></div>`;
+        <div class="cp-foot"><button type="button" class="link-btn" data-now>ЦЕЙ ТИЖДЕНЬ</button><span class="mono muted">НАТИСНИ НА РЯДОК, ЩОБ ВІДКРИТИ ТИЖДЕНЬ</span></div>`;
       el.querySelectorAll('[data-m]').forEach((b) => b.addEventListener('click', () => {
         m += +b.dataset.m;
         if (m < 0) { m = 11; y--; }
@@ -121,7 +121,7 @@ window.LP = window.LP || {};
     if (!b) return;
     const s = current();
     b.classList.toggle('is-on', radio.playing);
-    b.title = radio.playing && s ? `Радіо: ${s.name}` : 'Радіо';
+    b.dataset.tip = radio.playing && s ? `Радіо: ${s.name}` : 'Радіо';
     b.setAttribute('aria-label', b.title);
   }
   function play(id) {
@@ -136,7 +136,7 @@ window.LP = window.LP || {};
       refresh();
     }).catch(() => {
       radio.playing = false;
-      radio.status = 'НЕ ВДАЛОСЯ ПІДКЛЮЧИТИСЬ — СПРОБУЙ ІНШЕ';
+      radio.status = 'НЕ ВДАЛОСЯ ПІДКЛЮЧИТИСЬ. СПРОБУЙ ІНШЕ РАДІО';
       refresh();
     });
     saveRadio();
@@ -153,7 +153,7 @@ window.LP = window.LP || {};
   audio.addEventListener('error', () => {
     if (!audio.getAttribute('src')) return;
     radio.playing = false;
-    radio.status = 'ПОТІК НЕДОСТУПНИЙ — СПРОБУЙ ІНШЕ РАДІО';
+    radio.status = 'ПОТІК НЕДОСТУПНИЙ. СПРОБУЙ ІНШЕ РАДІО';
     refresh();
   });
   let paintRadio = null;
