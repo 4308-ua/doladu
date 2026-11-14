@@ -654,14 +654,8 @@ window.LP = window.LP || {};
         </div>
         <p class="hint person-hint-map">Якщо хочеш щось змінити, імʼя на карті буде в рамці, а з точки вийде стрілка. Перетягни її кінець туди, куди хочеш рухати стосунки.</p>
         <div class="person-quad">
-          <div class="seg" role="radiogroup" aria-label="Як ця людина на тебе впливає">
-            <label><input type="radio" name="qy" value="1" ${p.y >= 0.5 ? 'checked' : ''}><span>Заряджає</span></label>
-            <label><input type="radio" name="qy" value="0" ${p.y < 0.5 ? 'checked' : ''}><span>Виснажує</span></label>
-          </div>
-          <div class="seg" role="radiogroup" aria-label="Як часто бачитесь">
-            <label><input type="radio" name="qx" value="1" ${p.x >= 0.5 ? 'checked' : ''}><span>Бачимось часто</span></label>
-            <label><input type="radio" name="qx" value="0" ${p.x < 0.5 ? 'checked' : ''}><span>Рідко</span></label>
-          </div>
+          <label class="field rng"><span>Як ця людина на тебе впливає</span><input type="range" name="py" min="0" max="100" step="5" value="${Math.round(p.y * 100)}"><span class="rng-ends mono"><i>ВИСНАЖУЄ</i><i>ЗАРЯДЖАЄ</i></span></label>
+          <label class="field rng"><span>Як часто бачитесь</span><input type="range" name="px" min="0" max="100" step="5" value="${Math.round(p.x * 100)}"><span class="rng-ends mono"><i>РІДКО</i><i>ЧАСТО</i></span></label>
         </div>
         <label class="field"><span>Нотатка</span><input type="text" name="note" maxlength="120" value="${u.esc(p.note || '')}" placeholder="Наприклад: хочу бачитися частіше"></label>`,
       extra: isNew ? [] : [{
@@ -680,11 +674,12 @@ window.LP = window.LP || {};
         }
         const ok = form.querySelector('input[name=ok]:checked').value === '1';
         const fields = { id: p.id, name, note: form.note.value.trim(), ok };
-        // квадрант змінюємо лише коли його справді перемкнули — точне місце на карті лишається
-        const qy = form.querySelector('input[name=qy]:checked').value === '1', qx = form.querySelector('input[name=qx]:checked').value === '1';
-        const fresh = isNew && LP.isMobile && LP.isMobile();
-        if (fresh || qy !== (p.y >= 0.5)) fields.y = qy ? 0.75 : 0.25;
-        if (fresh || qx !== (p.x >= 0.5)) fields.x = qx ? 0.75 : 0.25;
+        // на телефоні місце задають шкали (на ПК — перетягування на карті)
+        if (LP.isMobile && LP.isMobile()) {
+          const ny = Number(form.py.value) / 100, nx = Number(form.px.value) / 100;
+          if (isNew || Math.abs(ny - p.y) > 0.02) fields.y = ny;
+          if (isNew || Math.abs(nx - p.x) > 0.02) fields.x = nx;
+        }
         if (!ok && p.tx == null) {
           fields.tx = u.clamp(p.x - 0.2, 0.05, 0.95);
           fields.ty = u.clamp(p.y + 0.1, 0.05, 0.95);

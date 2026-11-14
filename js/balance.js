@@ -168,17 +168,27 @@ window.LP = window.LP || {};
         <span class="dot"></span><span class="pname">${u.esc(p.name)}</span>
       </button>
       ${!p.ok && p.tx != null ? `<span class="arrow-handle" data-handle="${p.id}" style="left:${p.tx * 100}%;top:${(1 - p.ty) * 100}%" title="Куди хочу рухати стосунки з ${u.esc(p.name)} — перетягни"></span>` : ''}`).join('');
-    // телефон: точки на малому екрані злипаються — показуємо чотири квадранти з іменами
-    const Q = [
-      { t: 'Заряджають', s: 'бачимось рідко', f: (p) => p.y >= 0.5 && p.x < 0.5, c: 'q-tl' },
-      { t: 'Заряджають', s: 'бачимось часто', f: (p) => p.y >= 0.5 && p.x >= 0.5, c: 'q-tr' },
-      { t: 'Виснажують', s: 'бачимось рідко', f: (p) => p.y < 0.5 && p.x < 0.5, c: 'q-bl' },
-      { t: 'Виснажують', s: 'бачимось часто', f: (p) => p.y < 0.5 && p.x >= 0.5, c: 'q-br' },
-    ];
-    const quads = `<div class="rel-quads">${Q.map((q) => {
-      const ps = LP.data.people.filter(q.f).sort((a, b) => Math.abs(b.y - 0.5) - Math.abs(a.y - 0.5));
-      return `<div class="rq ${q.c}"><div class="rq-head"><b>${q.t}</b><span class="mono">${q.s} · ${ps.length}</span></div><div class="rq-chips">${ps.map((p) => `<button type="button" class="rq-chip ${p.ok ? '' : 'wants-change'}" data-person-open="${p.id}">${u.esc(p.name)}${p.ok ? '' : '<i>хочу змінити</i>'}</button>`).join('') || '<span class="rq-none">—</span>'}</div></div>`;
-    }).join('')}</div>${LP.data.people.length ? '<p class="hint rq-hint">Натисни на імʼя, щоб змінити, перенести в інший квадрант або видалити.</p>' : ''}`;
+    // телефон: замість карти — рядок на людину зі шкалою «виснажує ↔ заряджає» і частотою зустрічей
+    const freqN = (x) => (x >= 0.67 ? 3 : x >= 0.34 ? 2 : 1);
+    const FREQ = ['', 'РІДКО', 'ІНОДІ', 'ЧАСТО'];
+    const sorted = LP.data.people.slice().sort((a, b) => b.y - a.y);
+    const names = (ps) => ps.map((p) => `<b>${u.esc(p.name)}</b>`).join(', ');
+    const more = sorted.filter((p) => p.y >= 0.6 && freqN(p.x) === 1);
+    const heavy = sorted.filter((p) => p.y < 0.4 && freqN(p.x) === 3);
+    const quads = `<div class="rel-rows">
+      ${more.length ? `<p class="ri ri-more">Заряджають, а бачитесь рідко: ${names(more)}. З ними варто бачитись частіше.</p>` : ''}
+      ${heavy.length ? `<p class="ri ri-heavy">Часто поруч, але виснажують: ${names(heavy)}.</p>` : ''}
+      ${sorted.length ? '<div class="rr-scale mono"><span>← ВИСНАЖУЄ</span><span>ЗАРЯДЖАЄ →</span></div>' : ''}
+      ${sorted.map((p) => {
+        const e = (p.y - 0.5) * 2, n = freqN(p.x);
+        const tgt = !p.ok && p.ty != null ? `<i class="rr-target" style="left:${(p.ty * 100).toFixed(1)}%" title="Як хочеш"></i>` : '';
+        return `<button type="button" class="rr ${p.ok ? '' : 'wants-change'}" data-person-open="${p.id}">
+          <span class="rr-top"><span class="rr-name">${u.esc(p.name)}</span>${p.ok ? '' : '<span class="rr-flag mono">ХОЧУ ЗМІНИТИ</span>'}<span class="rr-freq mono" title="Як часто бачитесь">${[1, 2, 3].map((k) => `<i class="${k <= n ? 'on' : ''}"></i>`).join('')}${FREQ[n]}</span></span>
+          <span class="rr-bar"><i class="rr-mid"></i><i class="rr-fill ${e >= 0 ? 'is-plus' : 'is-minus'}" style="${e >= 0 ? 'left' : 'right'}:50%;width:${(Math.abs(e) * 50).toFixed(1)}%"></i>${tgt}</span>
+        </button>`;
+      }).join('')}
+      ${sorted.length ? '<p class="hint rq-hint">Натисни на людину, щоб змінити шкали, нотатку чи видалити.</p>' : ''}
+    </div>`;
     return `${quads}
       <div class="rel-map">
         <div class="quad quad-bad"></div>
@@ -232,6 +242,7 @@ window.LP = window.LP || {};
         }).join('')}</tbody>
       </table></div>
       <div class="support-cards">
+        <p class="sp-legend"><span class="sc-chip pm-plus"><b>+</b>дає</span><span class="sc-chip pm-minus"><b>−</b>не дає</span><span class="sc-chip pm-both"><b>±</b>по-різному</span><span class="sp-legend-t">Натискай на вид підтримки, щоб змінити.</span></p>
         ${(() => {
           const gaps = LP.SUPPORT.filter((k) => !people.some((p) => ['+', '±'].includes((LP.data.support[k.id] || {})[p.id])));
           return gaps.length ? `<p class="sp-gaps"><b>Поки немає кому:</b> ${gaps.map((k) => k.short.toLowerCase()).join(', ')}.</p>` : '<p class="sp-gaps is-ok">Кожен вид підтримки є кому закрити.</p>';
@@ -247,7 +258,6 @@ window.LP = window.LP || {};
             }).join('')}</div>
           </div>`;
         }).join('')}
-        <p class="hint">Натискай на вид підтримки: «+» підтримує, «−» ні, «±» буває по-різному.</p>
         <details class="sp-kinds"><summary class="mono">ЩО ОЗНАЧАЄ КОЖЕН ВИД</summary>${LP.SUPPORT.map((k) => `<p><b>${k.short}.</b> ${k.q}</p>`).join('')}</details>
       </div>`;
   }

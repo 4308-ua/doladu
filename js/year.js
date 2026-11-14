@@ -175,15 +175,24 @@ window.LP = window.LP || {};
       const cur = nowIn && today >= sg.from && today < sg.to, part = isPart(sg);
       return `<div class="yr-mgroup ${cur ? 'is-now' : ''} ${sg.to <= today ? 'is-past' : ''}"><div class="yr-mhead mono">${u.MONTHS[sg.m - 1].slice(0, 3).toUpperCase()}${sg.m === 1 || (sg === segs[0] && !part) ? ' ' + sg.y : ''}${part ? `<i>${sg === segs[0] ? 'з ' + Number(sg.from.slice(8)) : 'до ' + Number(u.addDays(sg.to, -1).slice(8))}</i>` : ''}</div>${itemsOf(sg).map(itemHtml).join('')}</div>`;
     }).join('')}</div>`).join('');
-    // телефон: місяці списком — спершу поточний і наступні, минулі згорнуті внизу
-    const agGroup = (sg) => {
-      const its = itemsOf(sg), cur = nowIn && today >= sg.from && today < sg.to;
-      if (!its.length && !cur) return '';
-      return `<div class="yr-mgroup ${cur ? 'is-now' : ''}"><div class="yr-mhead mono">${u.MONTHS[sg.m - 1].toUpperCase()} ${sg.y}${cur ? ' · ЗАРАЗ' : ''}</div>${its.map(itemHtml).join('') || '<p class="yr-empty">Поки порожньо.</p>'}</div>`;
+    // телефон: вертикальна лінія року — місяці один під одним, біля кожної дати точка на лінії
+    const vRow = (e) => {
+      const past = e.past != null ? e.past : e.date < today;
+      return `<button type="button" class="yv-it ${e.cls} ${past ? 'is-past' : ''} ${e.date === today ? 'is-today' : ''}" data-k="${e.k}" data-date="${e.date}" ${e.attr}><span class="yv-d">${Number(e.date.slice(8))}<small>${wd(e.date)}</small></span><i class="yv-dot"></i><span class="yv-t">${u.esc(e.text)}${e.sub ? `<small> · ${e.sub}</small>` : ''}</span></button>`;
     };
-    const agAhead = segs.filter((sg) => sg.to > today).map(agGroup).join('');
-    const agPast = segs.filter((sg) => sg.to <= today).map(agGroup).join('');
-    const agenda = !mob ? '' : `<div class="yr-agenda">${agAhead || '<p class="yr-empty">Попереду поки нічого. Натисни на лінію або «+ Позначка».</p>'}${agPast ? `<details class="yr-past"><summary class="mono">РАНІШЕ ЦЬОГО РОКУ</summary>${agPast}</details>` : ''}</div>`;
+    const nowRow = `<div class="yv-now" data-date="${today}"><span class="yv-d">${Number(today.slice(8))}<small>${wd(today)}</small></span><i class="yv-dot"></i><span class="yv-t">Сьогодні</span></div>`;
+    const vMonth = (sg) => {
+      const cur = nowIn && today >= sg.from && today < sg.to;
+      let rows = '', nowDone = !cur;
+      itemsOf(sg).forEach((e) => {
+        if (!nowDone && e.date >= today) { if (e.date !== today) rows += nowRow; nowDone = true; }
+        rows += vRow(e);
+      });
+      if (!nowDone) rows += nowRow;
+      return `<section class="yv-month ${cur ? 'is-now' : ''} ${sg.to <= today ? 'is-past' : ''}" data-date="${sg.from}"><div class="yv-head"><span class="yv-d"></span><i class="yv-tick"></i><span class="mono yv-mname">${u.MONTHS[sg.m - 1].toUpperCase()} ${sg.y}</span><button type="button" class="yv-add" data-add-in="${cur ? today : sg.from}" aria-label="Додати позначку: ${u.MONTHS[sg.m - 1]}">+</button></div>${rows}</section>`;
+    };
+    const vPast = nowIn ? segs.filter((sg) => sg.to <= today) : [];
+    const vline = !mob ? '' : `<div class="yv">${vPast.length ? `<details class="yv-past"><summary><span class="yv-d"></span><i class="yv-tick"></i><span class="mono">РАНІШЕ ЦЬОГО РОКУ · ${vPast.reduce((n, sg) => n + itemsOf(sg).length, 0)}</span></summary>${vPast.map(vMonth).join('')}</details>` : ''}${segs.filter((sg) => !vPast.includes(sg)).map(vMonth).join('')}<div class="yv-end"><span class="yv-d"></span><i class="yv-dot"></i><span class="yv-t mono">${L.birthday ? 'ДЕНЬ НАРОДЖЕННЯ · ' + u.fmtDay(to).toUpperCase() : 'КІНЕЦЬ РОКУ'}</span></div></div>`;
 
     // --- лінія: пройдене суцільне, попереду — крапками
     const splitX = nowIn ? nowX : today >= to ? PADL + span : PADL;
@@ -243,8 +252,8 @@ window.LP = window.LP || {};
             </div>` : ''}
         </div>
         </div>
-        ${agenda}
-        <p class="hint yr-legend">${mob ? 'Лінія показує весь рік. Натисни на неї, щоб поставити позначку, і ще раз, щоб вийшов період.' : 'Натисни на лінію, щоб поставити позначку, і ще раз, щоб вийшов період. Точку й дугу можна перетягнути. Наведи на рядок, і підсвітиться його точка.'}</p>
+        ${vline}
+        <p class="hint yr-legend">${mob ? '«+» біля місяця додає позначку. Щоб додати період, вкажи у формі дату кінця.' : 'Натисни на лінію, щоб поставити позначку, і ще раз, щоб вийшов період. Точку й дугу можна перетягнути. Наведи на рядок, і підсвітиться його точка.'}</p>
         <div class="yr-cols">
           <div class="yr-col">
             <div class="side-head"><span class="label">НАЙБЛИЖЧЕ</span><span class="mono muted">120 ДН.</span></div>
@@ -285,6 +294,33 @@ window.LP = window.LP || {};
     };
     stage.addEventListener('pointerover', (e) => { const el = e.target.closest('[data-k]'); setHot(el ? el.dataset.k : null); });
     stage.addEventListener('pointerleave', () => setHot(null));
+    // періоди на вертикальній лінії: смуга від першого дня до останнього
+    const yv = root.querySelector('.yv');
+    if (yv) {
+      const drawSpans = () => {
+        yv.querySelectorAll('.yv-span').forEach((x) => x.remove());
+        const base = yv.getBoundingClientRect().top;
+        const marks = Array.from(yv.querySelectorAll('[data-date]')).filter((el) => el.getClientRects().length);
+        const lanes = [];
+        spans.forEach((m) => {
+          const st = yv.querySelector(`.yv-it[data-k="m:${m.id}"]`);
+          const r = st && st.getClientRects().length ? st.getBoundingClientRect() : null;
+          const top = r ? r.top + r.height / 2 - base : 0;
+          const nxt = marks.find((el) => el.dataset.date > m.end && el.getBoundingClientRect().top - base > top + 2);
+          const bottom = nxt ? nxt.getBoundingClientRect().top - base : yv.offsetHeight;
+          let l = lanes.findIndex((b) => b <= top);
+          if (l < 0) { l = lanes.length; lanes.push(0); }
+          lanes[l] = bottom;
+          const bar = document.createElement('i');
+          bar.className = 'yv-span' + (m.end < today ? ' is-past' : '');
+          bar.style.cssText = `top:${top}px;height:${Math.max(bottom - top, 12)}px;--lane:${l}`;
+          yv.appendChild(bar);
+        });
+      };
+      drawSpans();
+      const det = yv.querySelector('.yv-past');
+      if (det) det.addEventListener('toggle', drawSpans);
+    }
     const guide = svg.querySelector('.yr-guide');
     const temp = svg.querySelector('.yr-temp');
     const tip = stage.querySelector('.yr-tip');
@@ -454,6 +490,8 @@ window.LP = window.LP || {};
       if (di) return openDateForm(L.dates.find((d) => d.id === di.dataset.dateId));
       if (t.closest('[data-add-date]')) return openDateForm(null);
       if (t.closest('[data-add-mark]')) return openMarkForm(null, today >= from && today < to ? today : from);
+      const addIn = t.closest('[data-add-in]');
+      if (addIn) return openMarkForm(null, addIn.dataset.addIn);
       if (t.closest('[data-bday]')) return openBirthdayForm();
     });
     root.querySelectorAll('[data-hol]').forEach((cb) => cb.addEventListener('change', () => {
