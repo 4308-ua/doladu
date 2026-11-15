@@ -2726,10 +2726,14 @@ html.theme-soft .yr-dtag.is-holiday { border-radius: 4px !important; }
 @media (max-width: 760px) {
   .lt-group .lt-break, .lt-group .lt-del, .lt-group .lt-warn { height: 24px; }
 }
-/* масштаб дошки: одна акуратна рамка, без кутів, що вилазять */
-.zoom-ctl { overflow: hidden; border-width: 1.5px; }
-.zoom-ctl button { border-left: 1px solid rgba(10, 10, 10, 0.16); }
-.zoom-ctl button:first-child { border-left: 0; }
+/* масштаб дошки: плаваюча «пігулка» без важких рамок */
+html.theme-soft .zoom-ctl { gap: 2px; padding: 3px; border: 1px solid #d5cfc3; border-radius: 999px !important; background: var(--sheet); box-shadow: var(--lay-2); overflow: visible; }
+html.theme-soft .zoom-ctl button { min-width: 34px; height: 30px; padding: 0 10px; border: 0 !important; border-radius: 999px; background: transparent; color: var(--ink); font-size: 13px; transition: background 120ms var(--ease); }
+html.theme-soft .zoom-ctl button:hover { background: #ebe9e3; color: var(--ink); }
+html.theme-soft .zoom-ctl button:active { background: #dedcd5; }
+html.theme-soft .zoom-ctl button:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+html.theme-soft .zoom-ctl [data-zoom="-1"], html.theme-soft .zoom-ctl [data-zoom="1"] { font-size: 17px; font-weight: 500; }
+@media (max-width: 760px) { html.theme-soft .zoom-ctl button { min-width: 42px; height: 38px; } }
 
 @media (max-width: 760px) {
   /* ===== рік на телефоні: вертикальна лінія ===== */
@@ -2812,3 +2816,6 @@ html.theme-soft .yr-dtag.is-holiday { border-radius: 4px !important; }
 /* перемикач із двох варіантів: виділення на всю висоту, навіть коли підпис у два рядки */
 .seg label { display: flex; }
 .seg span { flex: 1; display: flex; align-items: center; justify-content: center; }
+
+/* випадний список прокручується (тема не має його обрізати) */
+html.theme-soft .csel-pop { overflow-y: auto !important; overscroll-behavior: contain; }
