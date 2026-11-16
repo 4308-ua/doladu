@@ -155,6 +155,15 @@ window.LP = window.LP || {};
       segs.push({ ym: cur.slice(0, 7), y, m, from: cur, to: end, x0: xOf(cur), x1: xOf(end) });
       cur = nxt;
     }
+    // пори року: тихий підпис угорі й ледь помітна межа
+    const SEASON = (m) => (m === 12 || m <= 2 ? 'ЗИМА' : m <= 5 ? 'ВЕСНА' : m <= 8 ? 'ЛІТО' : 'ОСІНЬ');
+    const seasons = [];
+    segs.forEach((sg) => {
+      const last = seasons[seasons.length - 1];
+      if (last && last.name === SEASON(sg.m)) last.x1 = sg.x1;
+      else seasons.push({ name: SEASON(sg.m), x0: sg.x0, x1: sg.x1 });
+    });
+    const seasonsHtml = mob ? '' : seasons.map((se, i) => `${i ? `<i class="yr-season-line" style="left:${se.x0}px"></i>` : ''}${se.x1 - se.x0 > 80 ? `<span class="yr-season" style="left:${se.x0}px;width:${se.x1 - se.x0}px">${se.name}</span>` : ''}`).join('');
     let ticks = '';
     segs.forEach((sg, i) => { if (i) ticks += `<line class="yr-tick" x1="${sg.x0}" y1="${LY - 7}" x2="${sg.x0}" y2="${LY + 7}"/>`; });
     const isPart = (sg) => sg.to !== (sg.m === 12 ? `${sg.y + 1}-01-01` : `${sg.y}-${pad(sg.m + 1)}-01`) || sg.from.slice(8) !== '01';
@@ -181,6 +190,7 @@ window.LP = window.LP || {};
       return `<button type="button" class="yv-it ${e.cls} ${past ? 'is-past' : ''} ${e.date === today ? 'is-today' : ''}" data-k="${e.k}" data-date="${e.date}" ${e.attr}><span class="yv-d">${Number(e.date.slice(8))}<small>${wd(e.date)}</small></span><i class="yv-dot"></i><span class="yv-t">${u.esc(e.text)}${e.sub ? `<small> · ${e.sub}</small>` : ''}</span></button>`;
     };
     const nowRow = `<div class="yv-now" data-date="${today}"><span class="yv-d">${Number(today.slice(8))}<small>${wd(today)}</small></span><i class="yv-dot"></i><span class="yv-t">Сьогодні</span></div>`;
+    const vPast = nowIn ? segs.filter((sg) => sg.to <= today) : [];
     const vMonth = (sg) => {
       const cur = nowIn && today >= sg.from && today < sg.to;
       let rows = '', nowDone = !cur;
@@ -189,9 +199,10 @@ window.LP = window.LP || {};
         rows += vRow(e);
       });
       if (!nowDone) rows += nowRow;
-      return `<section class="yv-month ${cur ? 'is-now' : ''} ${sg.to <= today ? 'is-past' : ''}" data-date="${sg.from}"><div class="yv-head"><span class="yv-d"></span><i class="yv-tick"></i><span class="mono yv-mname">${u.MONTHS[sg.m - 1].toUpperCase()} ${sg.y}</span><button type="button" class="yv-add" data-add-in="${cur ? today : sg.from}" aria-label="Додати позначку: ${u.MONTHS[sg.m - 1]}">+</button></div>${rows}</section>`;
+      const idx = segs.indexOf(sg);
+      const newSeason = idx === 0 || SEASON(segs[idx - 1].m) !== SEASON(sg.m) || (vPast.length && idx === vPast.length);
+      return `${newSeason ? `<div class="yv-season"><span class="yv-d"></span><i></i><span>${SEASON(sg.m)}</span></div>` : ''}<section class="yv-month ${cur ? 'is-now' : ''} ${sg.to <= today ? 'is-past' : ''}" data-date="${sg.from}"><div class="yv-head"><span class="yv-d"></span><i class="yv-tick"></i><span class="mono yv-mname">${u.MONTHS[sg.m - 1].toUpperCase()} ${sg.y}</span><button type="button" class="yv-add" data-add-in="${cur ? today : sg.from}" aria-label="Додати позначку: ${u.MONTHS[sg.m - 1]}">+</button></div>${rows}</section>`;
     };
-    const vPast = nowIn ? segs.filter((sg) => sg.to <= today) : [];
     const vline = !mob ? '' : `<div class="yv">${vPast.length ? `<details class="yv-past"><summary><span class="yv-d"></span><i class="yv-tick"></i><span class="mono">РАНІШЕ ЦЬОГО РОКУ · ${vPast.reduce((n, sg) => n + itemsOf(sg).length, 0)}</span></summary>${vPast.map(vMonth).join('')}</details>` : ''}${segs.filter((sg) => !vPast.includes(sg)).map(vMonth).join('')}<div class="yv-end"><span class="yv-d"></span><i class="yv-dot"></i><span class="yv-t mono">${L.birthday ? 'ДЕНЬ НАРОДЖЕННЯ · ' + u.fmtDay(to).toUpperCase() : 'КІНЕЦЬ РОКУ'}</span></div></div>`;
 
     // --- лінія: пройдене суцільне, попереду — крапками
@@ -239,6 +250,7 @@ window.LP = window.LP || {};
             <path class="yr-temp" d="" hidden/>
             <line class="yr-guide" x1="0" y1="${LY - 22}" x2="0" y2="${LY + 14}" hidden/>
           </svg>
+          ${seasonsHtml}
           ${arcLabels}
           ${mob ? '' : `<div class="yr-months ${span / 12 < 130 ? 'is-tight' : ''}" style="top:${LY + 16}px">${colsHtml}</div>`}
           ${nowIn ? `<span class="yr-now-label mono" style="left:${nowX}px;top:${LY - 30}px">ЗАРАЗ</span>` : ''}

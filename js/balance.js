@@ -55,6 +55,7 @@ window.LP = window.LP || {};
   }
 
   function areaRows() {
+    const prevSnap = pastSnaps().slice(-1)[0] || null;
     return LP.data.balance.areas.map((ar) => {
       const score = LP.areaScore(ar.id);
       let cells = '';
@@ -62,10 +63,13 @@ window.LP = window.LP || {};
       const nt = notesOf(ar.id);
       const low = score > 0 && score < target();
       const preview = (low ? nt.change || nt.doing : nt.doing || nt.change).split('\n')[0];
+      const was = prevSnap && typeof prevSnap.scores[ar.id] === 'number' ? prevSnap.scores[ar.id] : null;
+      const d = was != null && score > 0 ? score - was : 0;
+      const delta = d ? `<i class="area-delta ${d > 0 ? 'is-up' : 'is-down'}" title="Було ${was} · ${u.fmtDay(prevSnap.date)}">${d > 0 ? '▲' : '▼'}${Math.abs(d)}</i>` : '';
       return `<div class="area-row ${low ? 'is-low' : ''}">
         <button type="button" class="area-name area-open" data-area-open="${ar.id}" title="Що роблю / що змінити"><span>${u.esc(ar.name)}${nt.doing || nt.change ? ' <span class="area-has">✎</span>' : ''}</span>
           ${preview ? `<small class="area-note">${low && nt.change ? '→ ' : ''}${u.esc(preview)}</small>` : ''}</button>
-        <span class="sc-row">${cells}</span><b class="area-val">${score}</b></div>`;
+        <span class="sc-row">${cells}</span><b class="area-val">${score}${delta}</b></div>`;
     }).join('');
   }
 
@@ -89,8 +93,11 @@ window.LP = window.LP || {};
       <p class="lvl-verdict ${deep.length >= 3 ? 'warn' : ''}">${verdict}</p>
       ${below.length ? `<ol class="dips">${below.map((a) => {
         const nt = notesOf(a.id);
+        const step = nt.change.split('\n')[0].trim();
+        const inWeek = step && LP.weekGoalsOf(u.weekStart(u.today())).some((g) => g.title === step);
         return `<li><button type="button" class="dip-open" data-area-open="${a.id}"><span>${u.esc(a.name)}</span><b>${LP.areaScore(a.id)}</b>
-          <small>${nt.change ? '→ ' + u.esc(nt.change.split('\n')[0]) : '+ що змінити, щоб підняти?'}</small></button></li>`;
+          <small>${step ? '→ ' + u.esc(step) : '+ що змінити, щоб підняти?'}</small></button>
+          ${step ? `<button type="button" class="dip-step mono" data-step-area="${a.id}" ${inWeek ? 'disabled' : ''}>${inWeek ? '✓ У ЦІЛЯХ ТИЖНЯ' : '+ У ЦІЛІ ТИЖНЯ'}</button>` : ''}</li>`;
       }).join('')}</ol>` : ''}`;
   }
   // Історія: напрями × дати оцінок + міні-графік тенденції
@@ -189,7 +196,26 @@ window.LP = window.LP || {};
       }).join('')}
       ${sorted.length ? '<p class="hint rq-hint">Натисни на людину, щоб змінити шкали, нотатку чи видалити.</p>' : ''}
     </div>`;
+    // ПК: поруч із картою — що з неї випливає (рахується само, нічого дописувати не треба)
+    const base = sorted.filter((p) => p.y >= 0.6 && freqN(p.x) === 3);
+    const moves = sorted.filter((p) => !p.ok && p.tx != null).map((p) => {
+      const dx = p.tx - p.x, dy = p.ty - p.y, w = [];
+      if (dx > 0.08) w.push('бачитись частіше'); else if (dx < -0.08) w.push('бачитись рідше');
+      if (dy > 0.08) w.push('щоб більше заряджало'); else if (dy < -0.08) w.push('менше вкладатись');
+      return w.length ? `<li><b>${u.esc(p.name)}:</b> ${w.join(', ')}${p.note ? `<small>${u.esc(p.note)}</small>` : ''}</li>` : '';
+    }).join('');
+    const group = (cls, title, ps, text, plan) => (ps.length ? `<div class="rm-g ${cls}"><div class="mono rm-t">${title} · ${ps.length}</div><p>${ps.map((p) => `<button type="button" class="rm-name" data-person-open="${p.id}">${u.esc(p.name)}</button>`).join('')}</p><p class="rm-hint">${text}</p>${plan ? `<div class="rm-plan">${ps.map((p) => `<button type="button" class="link-btn" data-meet="${p.id}">+ зустріч у беклог: ${u.esc(p.name)}</button>`).join('')}</div>` : ''}</div>` : '');
+    const insights = `<aside class="rel-insights">
+      <div class="label">ЩО З ЦЬОГО ВИПЛИВАЄ</div>
+      ${sorted.length ? '' : '<p class="empty-note">Додай кількох людей і постав їх на карту. Тут зʼявляться висновки.</p>'}
+      ${group('is-base', 'ОПОРА', base, 'Заряджають і поруч. Це твої люди, бережи ці стосунки.')}
+      ${group('is-more', 'БАЧИТИСЬ ЧАСТІШЕ', more, 'Заряджають, але бачитесь рідко. Найпростіший спосіб додати собі сил.', true)}
+      ${group('is-heavy', 'БЕРЕГТИ СИЛИ', heavy, 'Часто поруч і виснажують. Подумай про межі або коротші зустрічі.')}
+      ${moves ? `<div class="rm-g"><div class="mono rm-t">ХОЧУ ЗМІНИТИ</div><ul class="rm-moves">${moves}</ul></div>` : ''}
+      ${sorted.length && !base.length && !more.length && !heavy.length && !moves ? '<p class="rm-hint">Поки без явних перекосів. Перетягни людей точніше: вгору ті, хто заряджає, праворуч ті, кого бачиш часто.</p>' : ''}
+    </aside>`;
     return `${quads}
+      <div class="rel-wrap">
       <div class="rel-map">
         <div class="quad quad-bad"></div>
         <div class="quad quad-tl"></div>
@@ -200,6 +226,8 @@ window.LP = window.LP || {};
         <span class="ax-label ax-left">РІДКО</span>
         <span class="ax-label ax-right">ЧАСТО</span>
         <div class="rel-area"><svg class="arrows" aria-hidden="true"></svg>${people}</div>
+      </div>
+      ${insights}
       </div>`;
   }
 
@@ -225,36 +253,48 @@ window.LP = window.LP || {};
     const people = LP.data.people;
     if (!people.length) return '<p class="empty-note">Люди зʼявляться тут, щойно додаси їх на карту стосунків.</p>';
     const sym = { '+': '+', '-': '−', '±': '±' };
+    const cls = (v) => (v === '+' ? 'plus' : v === '-' ? 'minus' : v === '±' ? 'both' : 'none');
+    const give = LP.data.give || {};
+    const got = (k, p) => (LP.data.support[k] || {})[p] || '';
+    const gave = (k, p) => (give[k] || {})[p] || '';
+    const yes = (v) => v === '+' || v === '±';
+    const stat = people.map((p) => ({ p, get: LP.SUPPORT.filter((k) => yes(got(k.id, p.id))).length, give: LP.SUPPORT.filter((k) => yes(gave(k.id, p.id))).length }));
+    const marked = Object.values(give).some((row) => Object.keys(row).length);
+    const iGiveMore = stat.filter((x) => x.give - x.get >= 2), iGetMore = stat.filter((x) => x.get - x.give >= 2);
+    const names = (xs) => xs.map((x) => `<b>${u.esc(x.p.name)}</b>`).join(', ');
+    const gaps = LP.SUPPORT.filter((k) => !people.some((p) => yes(got(k.id, p.id))));
+    const notes = `
+      ${gaps.length ? `<p class="sp-gaps"><b>Поки немає кому:</b> ${gaps.map((k) => k.short.toLowerCase()).join(', ')}.</p>` : '<p class="sp-gaps is-ok">Кожен вид підтримки є кому закрити.</p>'}
+      ${!marked ? '<p class="sp-gaps is-ok">Познач і те, що даєш ти. Тоді буде видно, де стосунки взаємні, а де ні.</p>' : ''}
+      ${marked && iGiveMore.length ? `<p class="sp-gaps is-ok">Ти даєш більше, ніж отримуєш: ${names(iGiveMore)}.</p>` : ''}
+      ${marked && iGetMore.length ? `<p class="sp-gaps is-ok">Отримуєш більше, ніж даєш: ${names(iGetMore)}. Можливо, є чим віддячити.</p>` : ''}`;
+    const legend = `<p class="sp-legend"><span class="sc-chip pm-plus"><b>+</b>так</span><span class="sc-chip pm-minus"><b>−</b>ні</span><span class="sc-chip pm-both"><b>±</b>по-різному</span><span class="sp-legend-t">У кожної людини дві позначки: <b>мені</b> — що вона дає тобі, <b>я</b> — що даєш їй ти.</span></p>`;
     return `
+      <div class="sp-notes">${notes}</div>
       <div class="table-scroll"><table class="support">
-        <thead><tr><th>ВИД ПІДТРИМКИ</th>${people.map((p) => `<th class="p-col">${u.esc(p.name)}</th>`).join('')}</tr></thead>
+        <thead><tr><th>ВИД ПІДТРИМКИ</th>${people.map((p) => `<th class="p-col">${u.esc(p.name)}<span class="p-sub mono"><i>МЕНІ</i><i>Я</i></span></th>`).join('')}</tr></thead>
         <tbody>${LP.SUPPORT.map((k, i) => {
-          const row = LP.data.support[k.id] || {};
-          const hasPlus = people.some((p) => row[p.id] === '+' || row[p.id] === '±');
+          const hasPlus = people.some((p) => yes(got(k.id, p.id)));
           return `<tr class="${hasPlus ? '' : 'gap'}">
             <td><div class="k-title"><span class="num">${String(i + 1).padStart(2, '0')}</span> ${k.title}</div><div class="k-q">${k.q}</div></td>
             ${people.map((p) => {
-              const v = row[p.id] || '';
-              return `<td class="p-col"><button type="button" class="pm pm-${v === '+' ? 'plus' : v === '-' ? 'minus' : v === '±' ? 'both' : 'none'}" data-pm="${k.id}|${p.id}"
-                aria-label="${u.esc(p.name)}: ${k.title}">${sym[v] || ''}</button></td>`;
+              const a = got(k.id, p.id), b = gave(k.id, p.id);
+              return `<td class="p-col"><span class="pm2 ${yes(a) && yes(b) ? 'is-mutual' : ''}"><button type="button" class="pm pm-${cls(a)}" data-pm="${k.id}|${p.id}" title="${u.esc(p.name)} дає мені" aria-label="${u.esc(p.name)} дає мені: ${k.title}">${sym[a] || ''}</button><button type="button" class="pm pm-mine pm-${cls(b)}" data-pg="${k.id}|${p.id}" title="Я даю: ${u.esc(p.name)}" aria-label="Я даю, ${u.esc(p.name)}: ${k.title}">${sym[b] || ''}</button></span></td>`;
             }).join('')}
           </tr>`;
         }).join('')}</tbody>
+        <tfoot><tr><td class="mono">РАЗОМ: ОТРИМУЮ / ДАЮ</td>${stat.map((x) => `<td class="p-col"><span class="sp-total ${x.give - x.get >= 2 ? 'is-out' : x.get - x.give >= 2 ? 'is-in' : ''}">${x.get} / ${x.give}</span></td>`).join('')}</tr></tfoot>
       </table></div>
+      <p class="hint sp-desk-legend">У кожній клітинці дві позначки: ліва показує, що людина дає тобі, права — що даєш їй ти. Натискай, щоб змінити: «+» так, «−» ні, «±» по-різному.</p>
       <div class="support-cards">
-        <p class="sp-legend"><span class="sc-chip pm-plus"><b>+</b>дає</span><span class="sc-chip pm-minus"><b>−</b>не дає</span><span class="sc-chip pm-both"><b>±</b>по-різному</span><span class="sp-legend-t">Натискай на вид підтримки, щоб змінити.</span></p>
-        ${(() => {
-          const gaps = LP.SUPPORT.filter((k) => !people.some((p) => ['+', '±'].includes((LP.data.support[k.id] || {})[p.id])));
-          return gaps.length ? `<p class="sp-gaps"><b>Поки немає кому:</b> ${gaps.map((k) => k.short.toLowerCase()).join(', ')}.</p>` : '<p class="sp-gaps is-ok">Кожен вид підтримки є кому закрити.</p>';
-        })()}
+        ${legend}
         ${people.map((p) => {
-          const vals = LP.SUPPORT.map((k) => (LP.data.support[k.id] || {})[p.id] || '');
-          const n = vals.filter((v) => v === '+' || v === '±').length;
+          const st = stat.find((x) => x.p === p);
           return `<div class="sc-card">
-            <div class="sp-head"><span class="sp-name">${u.esc(p.name)}</span><span class="mono sp-count">${n ? `ПІДТРИМУЄ: ${n} ІЗ ${LP.SUPPORT.length}` : 'ЩЕ НЕ ПОЗНАЧЕНО'}</span></div>
-            <div class="sc-chips">${LP.SUPPORT.map((k, i) => {
-              const v = vals[i];
-              return `<button type="button" class="sc-chip pm-${v === '+' ? 'plus' : v === '-' ? 'minus' : v === '±' ? 'both' : 'none'}" data-pm="${k.id}|${p.id}" aria-label="${u.esc(p.name)}: ${k.title}"><b>${sym[v] || '·'}</b>${k.short}</button>`;
+            <div class="sp-head"><span class="sp-name">${u.esc(p.name)}</span><span class="mono sp-count">ОТРИМУЮ ${st.get} · ДАЮ ${st.give}</span></div>
+            <div class="sp-rows"><span></span><i class="mono">МЕНІ</i><i class="mono">Я</i>${LP.SUPPORT.map((k) => {
+              const a = got(k.id, p.id), b = gave(k.id, p.id);
+              return `<span class="sp-kind">${k.short}</span><button type="button" class="sc-chip sp-t pm-${cls(a)}" data-pm="${k.id}|${p.id}" aria-label="${u.esc(p.name)} дає мені: ${k.title}"><b>${sym[a] || '·'}</b></button><button type="button" class="sc-chip sp-t pm-${cls(b)}" data-pg="${k.id}|${p.id}" aria-label="Я даю, ${u.esc(p.name)}: ${k.title}"><b>${sym[b] || '·'}</b></button>`;
             }).join('')}</div>
           </div>`;
         }).join('')}
@@ -357,6 +397,12 @@ window.LP = window.LP || {};
     });
     root.querySelectorAll('.sc').forEach((b) => b.addEventListener('click', () => LP.setAreaScore(b.dataset.area, parseInt(b.dataset.score, 10))));
     root.querySelectorAll('[data-area-open]').forEach((b) => b.addEventListener('click', () => openAreaNotes(b.dataset.areaOpen)));
+    root.querySelectorAll('[data-step-area]').forEach((b) => b.addEventListener('click', () => {
+      const step = notesOf(b.dataset.stepArea).change.split('\n')[0].trim();
+      if (!step) return;
+      LP.saveGoal({ level: 'week', title: step, week: u.weekStart(u.today()), parentId: null, done: false });
+      LP.toast('Додано в цілі тижня');
+    }));
     root.querySelectorAll('[data-lvl]').forEach((b) => b.addEventListener('click', () => {
       LP.data.balance.target = u.clamp(target() + Number(b.dataset.lvl), 4, 9);
       LP.save();
@@ -416,8 +462,21 @@ window.LP = window.LP || {};
       dragPoint(el, (x, y) => Object.assign(p, { tx: x, ty: y }));
     });
     root.querySelector('[data-add-person]').addEventListener('click', () => LP.openPersonForm({}));
+    root.querySelectorAll('[data-meet]').forEach((b) => b.addEventListener('click', () => {
+      const p = LP.person(b.dataset.meet);
+      if (!p) return;
+      LP.saveTask({ title: `Зустрітись: ${p.name}`, stage: 'backlog', mood: 'good' }, true);
+      b.disabled = true; b.textContent = '✓ у беклозі';
+      LP.toast('Додано в беклог');
+    }));
     root.querySelectorAll('[data-person-open]').forEach((b) => b.addEventListener('click', () => LP.openPersonForm(LP.person(b.dataset.personOpen))));
 
+    root.querySelectorAll('[data-pg]').forEach((b) =>
+      b.addEventListener('click', () => {
+        const [k, p] = b.dataset.pg.split('|');
+        LP.cycleSupport(k, p, true);
+      })
+    );
     root.querySelectorAll('[data-pm]').forEach((b) =>
       b.addEventListener('click', () => {
         const [k, p] = b.dataset.pm.split('|');

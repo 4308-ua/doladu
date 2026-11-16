@@ -51,7 +51,7 @@ window.LP = window.LP || {};
   function miniWheel(scores, size = 132) {
     const areas = LP.data.balance.areas;
     const n = areas.length || 1;
-    const c = size / 2, R = size / 2 - 6;
+    const c = size / 2, R = size / 2 - 17; // місце під номери сфер навколо кола
     const step = (2 * Math.PI) / n;
     const pt = (a, r) => [c + r * Math.cos(a), c + r * Math.sin(a)];
     const f = (x) => x.toFixed(1);
@@ -66,6 +66,8 @@ window.LP = window.LP || {};
       }
       const [sx, sy] = pt(-Math.PI / 2 + i * step, R);
       s += `<line x1="${c}" y1="${c}" x2="${f(sx)}" y2="${f(sy)}" class="mw-spoke"/>`;
+      const [nx, ny] = pt(-Math.PI / 2 + (i + 0.5) * step, R + 9.5);
+      s += `<text x="${f(nx)}" y="${f(ny)}" class="mw-num" text-anchor="middle" dominant-baseline="central">${i + 1}</text>`;
     });
     return `<svg viewBox="0 0 ${size} ${size}" class="mini-wheel" aria-hidden="true">${s}</svg>`;
   }
@@ -147,12 +149,19 @@ window.LP = window.LP || {};
 
   // Весь графік стану: період на вибір (30 днів, 3 місяці, рік, окремий рік, усе, свої дати)
   function historySvg(from, to) {
-    const n = Math.round((u.parse(to) - u.parse(from)) / 864e5);
+    let n = Math.round((u.parse(to) - u.parse(from)) / 864e5);
     const mob = LP.isMobile && LP.isMobile();
     const W = mob ? 420 : 1100, H = mob ? 300 : 260, L = 34, R = 14, T = 16, B = 30;
+    const pts = Object.keys(LP.data.journal).filter((d) => d >= from && d <= to && LP.data.journal[d].score).sort();
+    // довгий період із записами лише наприкінці: вісь починаємо з першого запису, щоб графік не збивався в куток
+    const asked = n;
+    if (pts.length && asked > 45) {
+      const lead = Math.round((u.parse(pts[0]) - u.parse(from)) / 864e5);
+      if (lead > asked * 0.2) from = u.addDays(pts[0], -Math.max(3, Math.round((asked - lead) * 0.06)));
+    }
+    n = Math.round((u.parse(to) - u.parse(from)) / 864e5);
     const x = (d) => L + (n ? Math.round((u.parse(d) - u.parse(from)) / 864e5) / n : 0.5) * (W - L - R);
     const y = (v) => T + (1 - v / 10) * (H - T - B);
-    const pts = Object.keys(LP.data.journal).filter((d) => d >= from && d <= to && LP.data.journal[d].score).sort();
     let svg = '';
     [2, 4, 6, 8, 10].forEach((v) => (svg += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" class="mc-grid"/><text x="${L - 8}" y="${y(v) + 4}" class="mc-y">${v}</text>`));
     // підписи осі: дні (коротко) або місяці (довго)
@@ -175,12 +184,25 @@ window.LP = window.LP || {};
         cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
       }
     }
-    if (pts.length > 1) svg += `<polyline class="mc-line" points="${pts.map((d) => `${x(d).toFixed(1)},${y(LP.data.journal[d].score).toFixed(1)}`).join(' ')}"/>`;
-    const r = pts.length > 120 ? 3 : pts.length > 40 ? 4.5 : 6;
-    pts.forEach((d) => {
+    const score = (d) => LP.data.journal[d].score;
+    const dot = (d, r, extra) => {
       const e = LP.data.journal[d];
-      svg += `<circle cx="${x(d).toFixed(1)}" cy="${y(e.score).toFixed(1)}" r="${r}" class="mc-dot" data-hday="${d}"><title>${u.fmtDate(d)} — ${e.score}/10${e.state ? ', ' + u.esc(e.state) : ''}</title></circle>`;
-    });
+      return `<circle cx="${x(d).toFixed(1)}" cy="${y(e.score).toFixed(1)}" r="${r}" class="mc-dot ${extra || ''}" data-hday="${d}"><title>${u.fmtDate(d)} — ${e.score}/10${e.state ? ', ' + u.esc(e.state) : ''}</title></circle>`;
+    };
+    if (n > 75 && pts.length > 20) {
+      // багато записів за довгий час: лінія — середнє за тиждень, окремі дні — дрібні точки під нею
+      const weeks = {};
+      pts.forEach((d) => { const w = u.weekStart(d); (weeks[w] = weeks[w] || []).push(score(d)); });
+      const mid = (w) => { const m = u.addDays(w, 3); return m > to ? to : m < from ? from : m; };
+      const wk = Object.keys(weeks).sort().map((w) => ({ d: mid(w), w, v: weeks[w].reduce((a, v) => a + v, 0) / weeks[w].length, n: weeks[w].length }));
+      pts.forEach((d) => (svg += dot(d, 2.6, 'is-faint')));
+      if (wk.length > 1) svg += `<polyline class="mc-line" points="${wk.map((p) => `${x(p.d).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ')}"/>`;
+      wk.forEach((p) => (svg += `<circle cx="${x(p.d).toFixed(1)}" cy="${y(p.v).toFixed(1)}" r="4" class="mc-dot is-week"><title>${u.fmtWeek(p.w)} — у середньому ${p.v.toFixed(1).replace('.', ',')} (${p.n} зап.)</title></circle>`));
+    } else {
+      if (pts.length > 1) svg += `<polyline class="mc-line" points="${pts.map((d) => `${x(d).toFixed(1)},${y(score(d)).toFixed(1)}`).join(' ')}"/>`;
+      const r = pts.length > 40 ? 4.5 : 6;
+      pts.forEach((d) => (svg += dot(d, r)));
+    }
     const avg = pts.length ? (pts.reduce((a, d) => a + LP.data.journal[d].score, 0) / pts.length).toFixed(1).replace('.', ',') : '—';
     return { svg: `<svg class="mood-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Графік стану">${svg}</svg>`, count: pts.length, avg };
   }
@@ -308,13 +330,9 @@ window.LP = window.LP || {};
         <div class="tiles">
           ${tile('СТАН ЗА ТИЖДЕНЬ', moodAvg ? moodAvg.toFixed(1).replace('.', ',') : '—', moodAvg ? `СЕРЕДНЄ ІЗ ${moodN} ЗАПИС${moodN === 1 ? 'У' : 'ІВ'} «ЯК ТИ?»` : 'ЗАПИШИ «ЯК ТИ?» В ДЕНЬ')}
           ${tile('ЦІЛІ ТИЖНЯ', `${s.weekGoalsDone}/${s.weekGoals}`, s.weekGoals ? `${u.pct(s.weekGoalsDone, s.weekGoals)}% ДОСЯГНУТО` : 'НЕ ПОСТАВЛЕНО')}
-          ${tile('ЗВИЧКИ', `${u.pct(s.habitDone, s.habitTarget)}%`, `${s.habitDone} ІЗ ${s.habitTarget} ВІДМІТОК`)}
           ${tile('БАЛАНС', `${balLow}`, balLow ? `СФЕР${balLow === 1 ? 'А' : balLow < 5 ? 'И' : ''} НИЖЧЕ РІВНЯ ${balT}` : `УСЕ НА РІВНІ ${balT}+`)}
         </div>
         ${moodChart(ws)}
-        <div class="chart-row chart-row-1">
-          ${pctBars('ВИКОНАННЯ ЗВИЧОК ПО ТИЖНЯХ, %', habitRows, ws)}
-        </div>
         ${LP.habitsSection.html()}
         ${balanceWheels()}
         <section class="chart chart-wide"><div class="label">ПРОГРЕС ЦІЛЕЙ</div><div class="hbars">${goalRows}</div></section>

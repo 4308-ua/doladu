@@ -5,7 +5,7 @@ window.LP = window.LP || {};
   const u = LP.u;
   const TG_BOT = 'NA_SVIY_LAD_Bot';
   const main = document.getElementById('main');
-  const TITLES = { board: 'ДЕНЬ', year: 'РІК', goals: 'ЦІЛІ', habits: 'ЗВИЧКИ', balance: 'БАЛАНС' };
+  const TITLES = { board: 'ДЕНЬ', year: 'РІК', goals: 'ЦІЛІ', habits: 'ЗВИЧКИ', balance: 'БАЛАНС', calm: 'ОПОРА' };
 
   // основний колір
   let accentNow = null;
@@ -91,6 +91,11 @@ window.LP = window.LP || {};
     });
   }
 
+  // висота шапки потрібна бічним закладкам (вони починаються під нею)
+  const mastEl = document.querySelector('.masthead');
+  function syncMastHeight() { document.documentElement.style.setProperty('--mast-h', mastEl.offsetHeight + 'px'); }
+  window.addEventListener('resize', syncMastHeight);
+
   LP.render = function () {
     flip(renderNow);
     lastTab = LP.view.tab;
@@ -113,6 +118,7 @@ window.LP = window.LP || {};
     document.getElementById('mast-issue').textContent = `КНИГА ${u.parse(u.addDays(ws, 3)).getFullYear()} — РОЗДІЛ ${u.isoWeek(ws)}`;
     document.body.dataset.view = tab;
     LP.views[tab].render(main);
+    syncMastHeight();
   }
 
   document.querySelectorAll('.mast-nav [data-tab]').forEach((b) =>
@@ -213,6 +219,71 @@ window.LP = window.LP || {};
     }
   });
 
+  // ---- відгук: текст і, за бажанням, скриншот ----
+  const shrink = (file) => new Promise((resolve, reject) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob((b) => (b ? resolve(b) : reject(new Error('img'))), 'image/jpeg', 0.82);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('img')); };
+    img.src = url;
+  });
+  LP.openFeedback = function () {
+    let blob = null, busy = false;
+    LP.modal({
+      title: 'Відгук',
+      submitText: 'Надіслати',
+      body: `
+        <label class="field"><span>Що не так або чого бракує</span><textarea name="text" rows="5" maxlength="2000" placeholder="Наприклад: на телефоні не можу перетягнути справу на інший день"></textarea></label>
+        <div class="fb-file">
+          <label class="btn fb-pick"><input type="file" name="img" accept="image/*" hidden>+ Додати скриншот</label>
+          <span class="fb-prev" hidden><img alt=""><button type="button" class="icon-btn" data-fb-clear aria-label="Прибрати картинку">✕</button></span>
+        </div>
+        <p class="hint">Можна вставити картинку з буфера (Ctrl+V). Разом із відгуком надішлеться назва сторінки й розмір екрана, щоб було легше знайти помилку. Твої записи з планера не надсилаються.</p>`,
+      onOpen: (form) => {
+        const prev = form.querySelector('.fb-prev'), pick = form.querySelector('.fb-pick');
+        const take = async (file) => {
+          if (!file || !/^image\//.test(file.type)) return;
+          try {
+            blob = await shrink(file);
+            prev.querySelector('img').src = URL.createObjectURL(blob);
+            prev.hidden = false; pick.hidden = true;
+          } catch (e) { LP.toast('Не вдалося прочитати картинку'); }
+        };
+        form.img.addEventListener('change', () => take(form.img.files[0]));
+        form.addEventListener('paste', (e) => {
+          const it = Array.from((e.clipboardData && e.clipboardData.items) || []).find((x) => x.type.startsWith('image/'));
+          if (it) { e.preventDefault(); take(it.getAsFile()); }
+        });
+        form.querySelector('[data-fb-clear]').addEventListener('click', () => { blob = null; prev.hidden = true; pick.hidden = false; form.img.value = ''; });
+        if (!LP.isMobile()) form.text.focus();
+      },
+      onSubmit: (form) => {
+        const text = form.text.value.trim();
+        const err = form.querySelector('.form-errors');
+        const say = (t) => { err.textContent = t; err.hidden = false; };
+        if (busy) return false;
+        if (!text && !blob) { say('Напиши кілька слів або додай картинку.'); return false; }
+        if (!LP.sync || !LP.sync.signedIn) { say('Щоб надіслати відгук, увійди в акаунт.'); return false; }
+        busy = true;
+        const btn = form.querySelector('button[type=submit]');
+        btn.disabled = true; btn.textContent = 'Надсилаю…';
+        const meta = { tab: LP.view.tab, screen: `${window.innerWidth}×${window.innerHeight}`, ua: navigator.userAgent.slice(0, 180), v: 20 };
+        LP.sync.feedback(text, blob, meta).then(() => { LP.closeModal(); LP.toast('Дякую, відгук надіслано'); })
+          .catch(() => { busy = false; btn.disabled = false; btn.textContent = 'Надіслати'; say('Не вдалося надіслати. Перевір інтернет і спробуй ще раз.'); });
+        return false;
+      },
+    });
+  };
+  document.getElementById('btn-feedback').addEventListener('click', LP.openFeedback);
+
   document.getElementById('btn-settings').addEventListener('click', () => {
     const s = LP.data.settings;
     const hourOpts = (sel, from, to) => {
@@ -262,7 +333,8 @@ window.LP = window.LP || {};
           <p class="hint">Дані зберігаються в цьому браузері, а зашифрована копія лежить у хмарі й синхронізується між пристроями. Зайнято ${(JSON.stringify(LP.data).length * 2 / 1024).toFixed(0)} КБ з приблизно 5 000 КБ. Найбільше місця беруть картинки цілей.</p></div>
         <p class="hint">Ctrl+Z скасовує останню дію, Ctrl+Y повертає. Історія дій зберігається, поки відкрита сторінка.</p>
         <p class="hint">Час від часу роби «Експорт». Це твоя резервна копія у файлі.</p>
-        <p><button type="button" class="link-btn" data-tour-again>ПОКАЗАТИ ТУР ЩЕ РАЗ →</button></p>`,
+        <div class="set-file"><span class="mono">КОПІЯ У ФАЙЛІ</span><button type="button" class="btn btn-sm" data-set-export>Експорт</button><button type="button" class="btn btn-sm" data-set-import>Імпорт</button></div>
+        <p><button type="button" class="link-btn" data-tour-again>ПОКАЗАТИ ТУР ЩЕ РАЗ →</button> &nbsp; <button type="button" class="link-btn" data-set-feedback>НАПИСАТИ ВІДГУК →</button></p>`,
       extra: [{
         text: 'Стерти всі дані',
         className: 'btn-danger',
@@ -334,6 +406,9 @@ window.LP = window.LP || {};
         const off = form.querySelector('[data-tg-off]');
         if (off) off.addEventListener('click', () => { form.tgChat.value = ''; s.tgChat = ''; LP.save({ render: false }); off.remove(); tgSay('Відключено. Нагадувань більше не буде.'); });
         form.querySelector('[data-tour-again]').addEventListener('click', () => { LP.closeModal(); setTimeout(LP.startTour, 200); });
+        form.querySelector('[data-set-export]').addEventListener('click', () => { LP.closeModal(); document.getElementById('btn-export').click(); });
+        form.querySelector('[data-set-import]').addEventListener('click', () => { LP.closeModal(); document.getElementById('btn-import').click(); });
+        form.querySelector('[data-set-feedback]').addEventListener('click', () => { LP.closeModal(); setTimeout(LP.openFeedback, 200); });
       },
       onSubmit: (form) => {
 

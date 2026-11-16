@@ -97,7 +97,7 @@ window.LP = window.LP || {};
       settings: { dayStart: 6, dayEnd: 24 },
       goals: [], events: [], tasks: [], habits: [], journal: {}, rewards: [], links: [],
       balance: { areas: DEFAULT_AREAS.map((name) => ({ id: u.uid(), name })), current: {}, snapshots: [] },
-      people: [], support: {}, relAxis2: true, meals: LP.defaultMeals(), life: normLife(null),
+      people: [], support: {}, give: {}, worries: [], relAxis2: true, meals: LP.defaultMeals(), life: normLife(null),
     };
   }
 
@@ -163,6 +163,10 @@ window.LP = window.LP || {};
         v.people.forEach((pid) => (support[k][pid] = '+'));
       } else if (v && typeof v === 'object') support[k] = Object.assign({}, v);
     });
+
+    // що я даю цим людям (дзеркало обсерваторії)
+    const give = {};
+    Object.entries(d.give && typeof d.give === 'object' ? d.give : {}).forEach(([k, v]) => { if (v && typeof v === 'object') give[k] = Object.assign({}, v); });
 
     const settings = {
       dayStart: d.settings && Number.isFinite(d.settings.dayStart) ? d.settings.dayStart : base.settings.dayStart,
@@ -231,6 +235,9 @@ window.LP = window.LP || {};
         ? d.meals.map((m) => Object.assign({ name: '', start: 12 * 60, duration: 30, date: null, skipDates: [] }, withId(m)))
         : LP.defaultMeals(),
       support,
+      give,
+      // «Опора»: розібрані переживання
+      worries: (Array.isArray(d.worries) ? d.worries : []).filter((w) => w && typeof w.text === 'string').map(withId),
     };
   }
 
@@ -1083,11 +1090,13 @@ window.LP = window.LP || {};
   LP.deletePerson = function (id) {
     LP.data.people = LP.data.people.filter((p) => p.id !== id);
     Object.values(LP.data.support).forEach((row) => delete row[id]);
+    Object.values(LP.data.give || {}).forEach((row) => delete row[id]);
     LP.save();
   };
-  LP.cycleSupport = function (keyId, personId) {
+  LP.cycleSupport = function (keyId, personId, mine) {
     const order = ['', '+', '-', '±'];
-    const row = LP.data.support[keyId] || (LP.data.support[keyId] = {});
+    const box = mine ? (LP.data.give = LP.data.give || {}) : LP.data.support;
+    const row = box[keyId] || (box[keyId] = {});
     const next = order[(order.indexOf(row[personId] || '') + 1) % order.length];
     if (next) row[personId] = next;
     else delete row[personId];

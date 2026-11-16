@@ -28,6 +28,7 @@
           <button type="button" id="btn-radio" class="icon-link" data-tip="Радіо" aria-label="Радіо"><svg viewBox='0 0 24 24' aria-hidden='true'><path d='M9 18V5l11-2v13'/><circle cx='6' cy='18' r='3'/><circle cx='17' cy='16' r='3'/></svg></button>
           <button type="button" id="btn-import" class="icon-link" data-tip="Імпорт із файлу" aria-label="Імпорт із файлу"><svg viewBox='0 0 24 24' aria-hidden='true'><path d='M12 3v12'/><path d='M7 10l5 5 5-5'/><path d='M4 15v5h16v-5'/></svg></button>
           <button type="button" id="btn-export" class="icon-link" data-tip="Експорт у файл" aria-label="Експорт у файл"><svg viewBox='0 0 24 24' aria-hidden='true'><path d='M12 15V3'/><path d='M7 8l5-5 5 5'/><path d='M4 15v5h16v-5'/></svg></button>
+          <button type="button" id="btn-feedback" class="icon-link" data-tip="Написати відгук" aria-label="Написати відгук"><svg viewBox='0 0 24 24' aria-hidden='true'><path d='M4 5h16v11H9l-5 4z'/><path d='M8 9h8M8 12.5h5'/></svg></button>
           <button type="button" id="btn-settings" class="icon-link" data-tip="Налаштування" aria-label="Налаштування"><svg viewBox='0 0 24 24' aria-hidden='true'><circle cx='12' cy='12' r='3.2'/><path d='M12 2.5v2.6M12 18.9v2.6M21.5 12h-2.6M5.1 12H2.5M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8M18.7 18.7l-1.8-1.8M7.1 7.1L5.3 5.3'/></svg></button>
         </span>
       </div>
@@ -42,12 +43,13 @@
       </div>
     </div>
     <nav class="mast-nav" aria-label="Розділи">
-      <button type="button" data-tab="board"><span>01</span>ДЕНЬ</button>
-      <button type="button" data-tab="week"><span>02</span>ТИЖДЕНЬ</button>
-      <button type="button" data-tab="year"><span>03</span>РІК</button>
-      <button type="button" data-tab="goals"><span>04</span>ЦІЛІ</button>
-      <button type="button" data-tab="balance"><span>05</span>БАЛАНС</button>
-      <button type="button" data-tab="stats"><span>06</span><em class="nav-full">СТАТИСТИКА</em><em class="nav-short">СТАТИСТ.</em></button>
+      <button type="button" data-tab="board"><span>01</span><em>ДЕНЬ</em></button>
+      <button type="button" data-tab="week"><span>02</span><em>ТИЖДЕНЬ</em></button>
+      <button type="button" data-tab="year"><span>03</span><em>РІК</em></button>
+      <button type="button" data-tab="goals"><span>04</span><em>ЦІЛІ</em></button>
+      <button type="button" data-tab="balance"><span>05</span><em>БАЛАНС</em></button>
+      <button type="button" data-tab="calm"><span>06</span><em>ОПОРА</em></button>
+      <button type="button" data-tab="stats"><span>07</span><em class="nav-full">СТАТИСТИКА</em><em class="nav-short">СТАТ.</em></button>
     </nav>
     <input type="file" id="file-import" accept="application/json,.json" hidden>
   </header>
@@ -64,6 +66,7 @@
   <script src="js/goals.js"></script>
   <script src="js/habits.js"></script>
   <script src="js/balance.js"></script>
+  <script src="js/calm.js"></script>
   <script src="js/stats.js"></script>
   <script src="js/year.js"></script>
   <script src="js/meals.js"></script>

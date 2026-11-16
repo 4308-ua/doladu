@@ -580,6 +580,18 @@ window.LP = window.LP || {};
     async tgLink(code) {
       await api('/rest/v1/tg_link', { method: 'POST', token: await token(), headers: { Prefer: 'return=minimal' }, body: { code, user_id: auth.user.id } });
     },
+    // відгук: текст + (за бажанням) картинка в сховищі; розробнику приходить сповіщення
+    async feedback(text, blob, meta) {
+      const t = await token();
+      let image = null;
+      if (blob) {
+        const path = `${auth.user.id}/${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}.jpg`;
+        const r = await fetch(`${URL_}/storage/v1/object/feedback/${path}`, { method: 'POST', headers: { apikey: KEY, Authorization: 'Bearer ' + t, 'Content-Type': 'image/jpeg' }, body: blob });
+        if (!r.ok) throw new Error('upload ' + r.status);
+        image = `${URL_}/storage/v1/object/public/feedback/${path}`;
+      }
+      await api('/rest/v1/feedback', { method: 'POST', token: t, headers: { Prefer: 'return=minimal' }, body: { user_id: auth.user.id, text, image, meta } });
+    },
     async tgCheck(code) {
       const r = await api('/rest/v1/tg_link?select=chat_id&code=eq.' + encodeURIComponent(code), { token: await token() });
       return (r && r[0] && r[0].chat_id) || null;
