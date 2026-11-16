@@ -54,6 +54,20 @@ window.LP = window.LP || {};
         <ul>${gt.loose.map((it) => `<li class="${it.minutes ? '' : 'is-plan'}"><span class="gl-title">${u.esc(it.title)}</span><span class="mono">${it.minutes ? `${it.count > 1 ? '×' + it.count + ' · ' : ''}${u.fmtHours(it.minutes).toUpperCase()}` : ''}${it.planned ? `${it.minutes ? ' + ' : ''}${u.fmtHours(it.planned).toUpperCase()} У ПЛАНІ` : ''}</span><span class="mono muted">${u.fmtDay(it.last || it.next).toUpperCase()}</span></li>`).join('')}</ul>
         <p class="hint">Години зараховуються, коли ставиш галочку «виконано» на справі в розкладі.</p>
       </div>` : '';
+    // що далі: найближча привʼязана справа в розкладі або справи, які ще чекають у беклозі й на дошці
+    const today = u.today();
+    const nextOcc = LP.occurrences(today, u.addDays(today, 60)).filter((o) => o.ev.goalId === g.id && !o.done).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.ev.start - b.ev.start))[0];
+    const waiting = LP.data.tasks.filter((t) => t.goalId === g.id && (t.stage === 'backlog' || t.stage === 'board'));
+    const nextText = nextOcc
+      ? `<b>${u.esc(nextOcc.ev.title)}</b> · ${nextOcc.date === today ? 'сьогодні' : u.DAYS_SHORT[u.weekday(nextOcc.date)].toLowerCase() + ' ' + u.fmtDay(nextOcc.date)}, ${u.fmtTime(nextOcc.ev.start)}`
+      : waiting.length
+        ? `<b>${u.esc(waiting[0].title)}</b>${waiting.length > 1 ? ` і ще ${waiting.length - 1}` : ''} · чекає в беклозі, перетягни в «Тиждень»`
+        : 'Нічого не заплановано. Додай перший крок.';
+    const nextHtml = p >= 1 ? '' : `
+        <div class="goal-next ${nextOcc ? '' : waiting.length ? 'is-wait' : 'is-empty'}">
+          <span class="mono">ДАЛІ</span><span class="gn-text">${nextText}</span>
+          <button type="button" class="btn btn-sm" data-step="${g.id}" title="Нова справа для цієї цілі. Вона потрапить у беклог, звідки її можна перетягнути в розклад">+ КРОК</button>
+        </div>`;
     const summary = subs.length
       ? `ПІДЦІЛІ ${subs.filter((s) => LP.subProgress(g, s).ratio >= 1).length}/${subs.length}`
       : LP.ownProgress(g).label.toUpperCase();
@@ -68,6 +82,7 @@ window.LP = window.LP || {};
           <div class="goal-pct">${Math.round(p * 100)}<small>%</small></div>
         </header>
         ${LP.progressBar(p)}
+        ${nextHtml}
         <div class="goal-bar-row mono">
           <button type="button" class="toggle" data-toggle="${g.id}" aria-expanded="${open}">${open ? '▾' : '▸'} ${summary}</button>
           ${spent}
@@ -148,6 +163,7 @@ window.LP = window.LP || {};
 
     root.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => LP.openGoalForm(LP.goal(b.dataset.edit))));
     root.querySelectorAll('[data-add]').forEach((b) => b.addEventListener('click', () => LP.openGoalForm({ level: b.dataset.add })));
+    root.querySelectorAll('[data-step]').forEach((b) => b.addEventListener('click', () => LP.openTaskForm({ goalId: b.dataset.step, stage: 'backlog' }, { toBacklog: true })));
     root.querySelectorAll('[data-toggle]').forEach((b) =>
       b.addEventListener('click', () => {
         const id = b.dataset.toggle;

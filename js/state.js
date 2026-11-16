@@ -176,6 +176,7 @@ window.LP = window.LP || {};
       grain: !(d.settings && d.settings.grain === false),
       // Telegram: куди писати, за скільки хвилин нагадувати (-1 — ні), о котрій надсилати план дня (-1 — ні)
       tgChat: d.settings && d.settings.tgChat ? String(d.settings.tgChat).trim() : '',
+      calToken: d.settings && /^[0-9a-f]{24,64}$/.test(d.settings.calToken || '') ? d.settings.calToken : '',
       remindBefore: d.settings && Number.isFinite(d.settings.remindBefore) ? d.settings.remindBefore : 10,
       morningAt: d.settings && Number.isFinite(d.settings.morningAt) ? d.settings.morningAt : 8 * 60,
       tourDone: !!(d.settings && d.settings.tourDone),
@@ -237,6 +238,12 @@ window.LP = window.LP || {};
       support,
       give,
       // «Опора»: розібрані переживання
+      // зовнішні календарі: адреси й останні прочитані події
+      cals: {
+        sources: (d.cals && Array.isArray(d.cals.sources) ? d.cals.sources : []).filter((x) => x && typeof x.url === 'string').map(withId),
+        items: (d.cals && Array.isArray(d.cals.items) ? d.cals.items : []).filter((x) => x && typeof x.d === 'string' && typeof x.t === 'string'),
+        at: d.cals && Number(d.cals.at) || 0,
+      },
       worries: (Array.isArray(d.worries) ? d.worries : []).filter((w) => w && typeof w.text === 'string').map(withId),
     };
   }

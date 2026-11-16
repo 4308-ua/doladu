@@ -385,10 +385,33 @@ window.LP = window.LP || {};
   };
 
   // ---------------- Справа (дошка / беклог) ----------------
+  // цілі одним натиском: чип ставить значення у випадному списку поруч
+  LP.goalChips = function (selectName, prefix, selected) {
+    const goals = LP.bigGoals().filter((g) => LP.goalProgress(g) < 1).slice(0, 8);
+    if (!goals.length) return '';
+    return `<div class="goal-chips" data-chips-for="${selectName}">${goals.map((g) => `<button type="button" class="goal-chip ${prefix + g.id === selected ? 'on' : ''}" data-goal-chip="${prefix}${g.id}" title="${u.esc(g.title)}"><b>${u.esc(g.tag)}</b>${u.esc(g.title)}</button>`).join('')}</div>`;
+  };
+  document.addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-goal-chip]');
+    if (!chip) return;
+    const box = chip.closest('.goal-chips'), form = chip.closest('form');
+    const sel = form && form.elements[box.dataset.chipsFor];
+    if (!sel) return;
+    sel.value = sel.value === chip.dataset.goalChip ? '' : chip.dataset.goalChip; // повторний натиск знімає ціль
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  document.addEventListener('change', (e) => {
+    const sel = e.target;
+    if (!sel || !sel.form || !sel.name) return;
+    const box = sel.form.querySelector(`.goal-chips[data-chips-for="${sel.name}"]`);
+    if (box) box.querySelectorAll('[data-goal-chip]').forEach((c) => c.classList.toggle('on', c.dataset.goalChip === sel.value));
+  });
+
   LP.goalLinkFields = function (goalId, subgoalId) {
     return `
+      ${LP.goalChips('goalId', '', goalId || '') ? `<div class="field"><span>Для якої цілі (необовʼязково)</span>${LP.goalChips('goalId', '', goalId || '')}</div>` : ''}
       <div class="row">
-        <label class="field"><span>До якої цілі веде (необовʼязково)</span>
+        <label class="field"><span>${LP.goalChips('goalId', '', '') ? 'Або обери зі списку' : 'Для якої цілі (необовʼязково)'}</span>
           <select name="goalId"><option value="">— без цілі —</option>
             ${LP.bigGoals().map((g) => `<option value="${g.id}" ${g.id === goalId ? 'selected' : ''}>[${u.esc(g.tag)}] ${u.esc(g.title)}</option>`).join('')}
           </select></label>

@@ -1,10 +1,10 @@
 // Робота без інтернету: спершу мережа (щоб оновлення приходили одразу), без мережі — збережена копія.
-const CACHE = 'na-sviy-lad-v20';
+const CACHE = 'na-sviy-lad-v21';
 const CORE = [
   './', './index.html', './css/styles.css', './manifest.webmanifest',
   './icons/apple-touch-icon.png', './icons/icon-192.png', './icons/icon-512.png',
   './js/utils.js', './js/storage.js', './js/state.js', './js/ui.js', './js/week.js', './js/board.js', './js/goals.js',
-  './js/habits.js', './js/balance.js', './js/calm.js', './js/stats.js', './js/year.js', './js/meals.js', './js/tools.js', './js/help.js',
+  './js/habits.js', './js/balance.js', './js/calm.js', './js/cal.js', './js/stats.js', './js/year.js', './js/meals.js', './js/tools.js', './js/help.js',
   './js/select.js', './js/datepick.js', './js/app.js', './js/tour.js', './js/sync.js',
 ];
 

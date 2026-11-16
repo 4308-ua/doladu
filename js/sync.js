@@ -138,7 +138,7 @@ window.LP = window.LP || {};
   }
   async function upload() {
     const at = new Date().toISOString();
-    const body = { user_id: auth.user.id, updated_at: at, data: { v: 2, enc: await pack(LP.data), kp: meta.keys.kp, kr: meta.keys.kr, tg: tgPayload() } };
+    const body = { user_id: auth.user.id, updated_at: at, data: { v: 2, enc: await pack(LP.data), kp: meta.keys.kp, kr: meta.keys.kr, tg: tgPayload(), cal: LP.calFeed ? LP.calFeed() : null } };
     const rows = await api('/rest/v1/planner?on_conflict=user_id', {
       method: 'POST', token: await token(),
       headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body,
@@ -579,6 +579,12 @@ window.LP = window.LP || {};
     // Telegram за посиланням: одноразовий код → t.me/бот?start=код → бот записує chat_id
     async tgLink(code) {
       await api('/rest/v1/tg_link', { method: 'POST', token: await token(), headers: { Prefer: 'return=minimal' }, body: { code, user_id: auth.user.id } });
+    },
+    // чужий календар читаємо через свою функцію: браузер напряму не може (CORS)
+    async calFetch(url) {
+      const r = await fetch(`${URL_}/functions/v1/cal-fetch`, { method: 'POST', headers: { apikey: KEY, Authorization: 'Bearer ' + (await token()), 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
+      if (!r.ok) throw new Error(r.status === 400 ? 'host' : 'fetch ' + r.status);
+      return r.text();
     },
     // відгук: текст + (за бажанням) картинка в сховищі; розробнику приходить сповіщення
     async feedback(text, blob, meta) {

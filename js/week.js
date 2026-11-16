@@ -124,6 +124,7 @@ window.LP = window.LP || {};
           <li>Натисни на дати тижня вгорі, щоб відкрити календар тижнів. Стрілки ← → на клавіатурі перемикають тиждень.</li>
           <li>Чорні лінії показують підйом і відбій. Перетягни лінію, щоб змінити один день, або натисни на неї, щоб задати звичний час.</li>
           <li>Справу, що повторюється, можна змінити лише на один день або на всі дні одразу.</li>
+          <li>Сині смугасті блоки — події з Google Calendar чи Outlook. Їх видно, але змінюються вони у своєму календарі. Підключити: «Налаштування» → «Календарі».</li>
           <li>Праворуч угорі видно, що зараз і що далі. Цілі тижня можна перетягувати, щоб розставити за важливістю. Невиконані самі переходять на наступний тиждень.</li>
         </ul></div>`;
     });
@@ -166,7 +167,18 @@ window.LP = window.LP || {};
   LP.travelOf = (ev) => (!LP.FEATURES || !LP.FEATURES.travel ? { before: 0, after: 0 } : { before: ev.travelBefore != null ? ev.travelBefore : ev.travel || 0, after: ev.travelAfter != null ? ev.travelAfter : ev.travel || 0 });
   const tband = (min, pos) => `<div class="tband tband-${pos}" style="height:${(min / 60) * HOUR_PX}px">${CAR}${(min / 60) * HOUR_PX >= 13 ? `<span>${min} ХВ</span>` : ''}</div>`;
 
+  // подія із зовнішнього календаря: видно в сітці, але не редагується (кліки проходять крізь неї)
+  function extHtml(it) {
+    const { dayStart, dayEnd } = LP.data.settings;
+    const s = u.clamp(it.s, dayStart * 60, dayEnd * 60), e = u.clamp(it.e, dayStart * 60, dayEnd * 60);
+    if (e <= s) return '';
+    const h = Math.max(((e - s) / 60) * HOUR_PX - 3, 16), w = 100 / it.lanes;
+    return `<div class="xev ${h < 36 ? 'is-short' : ''} ${it.past ? 'is-past' : ''}" style="top:${px(s) + 1}px;height:${h}px;left:calc(${it.lane * w}% + 3px);width:calc(${w}% - 6px)">
+      <div class="xev-title">${u.esc(it.ext.t)}</div><div class="xev-meta">${shortTime(it.ext.s)}—${shortTime(it.ext.e)}<i> · КАЛЕНДАР</i></div></div>`;
+  }
+
   function eventHtml(it, warnings) {
+    if (it.ext) return extHtml(it);
     const { ev, date, done } = it.o;
     const { dayStart, dayEnd } = LP.data.settings;
     const cut = it.cut || { segs: [{ s: ev.start, e: ev.end }], end: ev.end, added: 0 };
@@ -430,7 +442,10 @@ ${jBtn}</div>`;
 
     const cols = (mobile ? [mday] : days).map((d) => {
       const i = u.weekday(d);
-      const items = layoutLanes(byDay[d]);
+      const ext = LP.calItemsOn ? LP.calItemsOn(d) : [];
+      const tNow = nowMin();
+      const items = layoutLanes(byDay[d].concat(ext.filter((x) => !x.all).map((x) => ({ ext: x, s: x.s, e: x.e, past: d < today || (d === today && x.e <= tNow) }))));
+      const allDay = ext.filter((x) => x.all).map((x) => `<span>${u.esc(x.t)}</span>`).join('');
       let nowLine = '';
       if (d === today) {
         const n = new Date();
@@ -457,7 +472,7 @@ ${jBtn}</div>`;
             <div class="sleep-line is-bed ${sl.custom ? 'is-custom' : ''}" data-sleep="bed" style="top:${px(sl.bed)}px" title="Відбій ${u.fmtTime(sl.bed)} · перетягни, щоб змінити цей день; натисни, щоб налаштувати"></div>`;
         }
       }
-      return `<div class="cal-col ${d === today ? 'is-today' : ''} ${d < today ? 'is-past' : ''} ${i >= 5 ? 'weekend' : ''}" data-date="${d}">${night}${meals}${items.map((it) => eventHtml(it, warnings)).join('')}${nowLine}</div>`;
+      return `<div class="cal-col ${d === today ? 'is-today' : ''} ${d < today ? 'is-past' : ''} ${i >= 5 ? 'weekend' : ''}" data-date="${d}">${night}${meals}${items.map((it) => eventHtml(it, warnings)).join('')}${allDay ? `<div class="xev-all">${allDay}</div>` : ''}${nowLine}</div>`;
     }).join('');
 
 
@@ -995,7 +1010,8 @@ ${jBtn}</div>`;
         <input type="text" name="title" maxlength="120" value="${u.esc(d.title)}" placeholder="Наприклад: пробіжка 5 км"></label>
       <div class="field"><span>Як тобі ця справа</span>${LP.moodPicker(d.mood)}</div>
       ${LP.bonusField(d.bonus)}
-      <label class="field"><span>До чого веде</span>${linkSelectHtml(linkValue(d))}</label>
+      ${LP.goalChips('link', 'g:', linkValue(d)) ? `<div class="field"><span>Для якої цілі</span>${LP.goalChips('link', 'g:', linkValue(d))}</div>` : ''}
+      <label class="field"><span>${LP.goalChips('link', 'g:', '') ? 'Або ціль, звичка чи своє' : 'До чого веде'}</span>${linkSelectHtml(linkValue(d))}</label>
       <label class="field field-sub"><span>Підціль</span><div class="sub-slot"></div></label>
       <label class="field field-custom"><span>Своя ціль (тільки для цієї справи)</span>
         <input type="text" name="customGoal" maxlength="120" value="${u.esc(d.customGoal || '')}" placeholder="Наприклад: подарунок мамі на ДН"></label>
