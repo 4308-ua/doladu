@@ -586,6 +586,16 @@ window.LP = window.LP || {};
       if (!r.ok) throw new Error(r.status === 400 ? 'host' : 'fetch ' + r.status);
       return r.text();
     },
+    // помічник: фраза → список дій (функція ai-plan; ключ Anthropic лише на сервері)
+    async aiPlan(text, ctx) {
+      let r;
+      try {
+        r = await fetch(`${URL_}/functions/v1/ai-plan`, { method: 'POST', headers: { apikey: KEY, Authorization: 'Bearer ' + (await token()), 'Content-Type': 'application/json' }, body: JSON.stringify({ text, ctx }) });
+      } catch (e) { return { error: 'net' }; }
+      let data = {};
+      try { data = await r.json(); } catch (e) { /* порожня відповідь */ }
+      return r.ok ? data : { error: data.error || 'upstream', limit: data.limit };
+    },
     // відгук: текст + (за бажанням) картинка в сховищі; розробнику приходить сповіщення
     async feedback(text, blob, meta) {
       const t = await token();

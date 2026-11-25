@@ -131,7 +131,10 @@ window.LP = window.LP || {};
       <div class="board-page">
         <div class="board-main">
           <form class="composer" autocomplete="off">
-            <input type="text" name="title" maxlength="120" placeholder="Що хочеш зробити? Enter кладе на дошку">
+            <div class="composer-in ${LP.voiceSupported ? 'has-mic' : ''}">
+              <input type="text" name="title" maxlength="120" placeholder="${LP.voiceSupported ? 'Що хочеш зробити? Напиши або надиктуй, Enter кладе на дошку' : 'Що хочеш зробити? Enter кладе на дошку'}">
+              ${LP.micHtml ? LP.micHtml('mic-in') : ''}
+            </div>
             <div class="composer-moods">
               ${ORDER.map((m) => `<button type="button" class="btn mood-btn ${m === lastMood ? 'on' : ''}" data-mood="${m}">${LP.moodDot(m)} ${LP.MOODS[m].toUpperCase()}</button>`).join('')}
             </div>
@@ -226,6 +229,7 @@ window.LP = window.LP || {};
 
   function bind(root) {
     const form = root.querySelector('.composer');
+    if (LP.bindMic) LP.bindMic(form.querySelector('[data-mic]'), form.querySelector('input[name=title]'));
     const canvas = root.querySelector('.canvas');
     const world = canvas.querySelector('.world');
     const v = view();

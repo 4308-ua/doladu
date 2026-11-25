@@ -1,0 +1,411 @@
+// Голосовий ввід і помічник.
+// Голос: розпізнавання мови браузера (uk-UA), безкоштовно. Помічник: текст іде у функцію ai-plan (Claude),
+// повертається список дій; планер показує їх і виконує лише те, що людина підтвердила.
+(function (LP) {
+  const u = LP.u;
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  LP.voiceSupported = !!SR;
+
+  const MIC_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/></svg>`;
+  LP.micHtml = (cls = '') => (SR ? `<button type="button" class="mic-btn ${cls}" data-mic aria-label="Говорити" title="Натисни й говори. Ще раз, щоб зупинити">${MIC_SVG}</button>` : '');
+
+  // ---------- Голос ----------
+  let active = null; // { rec, btn, stop }
+  LP.stopListening = () => { if (active) active.stop(); };
+
+  // btn — кнопка мікрофона, field — input/textarea, куди дописується текст
+  LP.bindMic = function (btn, field, { onDone } = {}) {
+    if (!btn || !field || !SR) return;
+    btn.addEventListener('click', () => {
+      if (active && active.btn === btn) return active.stop();
+      LP.stopListening();
+      const rec = new SR();
+      rec.lang = 'uk-UA';
+      rec.interimResults = true;
+      rec.continuous = true;
+      const base = field.value.trim();
+      let finals = '';
+      let stopped = false;
+      const show = (interim) => {
+        const said = (finals + ' ' + interim).replace(/\s+/g, ' ').trim();
+        field.value = base && said ? base + (/[.!?,;:]$/.test(base) ? ' ' : ', ') + said : base || said;
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+      };
+      rec.onresult = (e) => {
+        let interim = '';
+        finals = '';
+        for (let i = 0; i < e.results.length; i++) {
+          const t = e.results[i][0].transcript;
+          if (e.results[i].isFinal) finals += ' ' + t; else interim += ' ' + t;
+        }
+        show(interim);
+      };
+      rec.onerror = (e) => {
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') LP.toast('Дозволь доступ до мікрофона в налаштуваннях браузера');
+        else if (e.error === 'network') LP.toast('Для розпізнавання голосу потрібен інтернет');
+        else if (e.error === 'language-not-supported') LP.toast('Цей браузер не розпізнає українську. Спробуй Chrome');
+      };
+      const finish = () => {
+        if (stopped) return;
+        stopped = true;
+        btn.classList.remove('is-on');
+        btn.setAttribute('aria-label', 'Говорити');
+        if (active && active.rec === rec) active = null;
+        show('');
+        if (onDone) onDone(field.value);
+      };
+      rec.onend = finish;
+      active = { rec, btn, stop: () => { try { rec.stop(); } catch (e) { /* уже зупинено */ } setTimeout(finish, 600); } };
+      try { rec.start(); } catch (e) { active = null; return LP.toast('Мікрофон зараз недоступний'); }
+      btn.classList.add('is-on');
+      btn.setAttribute('aria-label', 'Зупинити');
+      field.focus({ preventScroll: true });
+    });
+  };
+
+  // ---------- Контекст для помічника: лише дата, назви цілей і періодів, зайняті години (без назв справ) ----------
+  function context() {
+    const today = u.today();
+    const now = new Date();
+    const { dayStart, dayEnd } = LP.data.settings;
+    const goals = LP.bigGoals().filter((g) => LP.goalProgress(g) < 1).slice(0, 40).map((g) => {
+      const hasSubs = (g.subgoals || []).some((s) => s.title && s.title.trim());
+      return Object.assign({ id: g.id, title: g.title, level: g.level, kind: hasSubs ? 'has_subgoals' : g.kind }, g.unit ? { unit: g.unit } : {});
+    });
+    const L = LP.data.life || { marks: [] };
+    const periods = L.marks.filter((m) => (m.end || m.start) >= today && m.start <= u.addDays(today, 400)).slice(0, 30)
+      .map((m) => Object.assign({ id: m.id, title: m.title, start: m.start }, m.end ? { end: m.end } : {}));
+    const to = u.addDays(today, 13);
+    const busy = {};
+    const add = (d, s, e) => { (busy[d] = busy[d] || []).push([u.fmtTime(s), u.fmtTime(Math.min(e, 1439))]); };
+    LP.occurrences(today, to).forEach((o) => add(o.date, o.ev.start, o.ev.end));
+    if (LP.calItemsOn) for (let d = today; d <= to; d = u.addDays(d, 1)) LP.calItemsOn(d).filter((x) => !x.all).forEach((x) => add(d, x.s, x.e));
+    Object.values(busy).forEach((list) => list.sort());
+    return {
+      today, weekday: u.DAYS_LONG[u.weekday(today)], now: u.fmtTime(now.getHours() * 60 + now.getMinutes()),
+      day_start: u.fmtTime(dayStart * 60), day_end: u.fmtTime(Math.min(dayEnd * 60, 1439)), goals, periods, busy,
+    };
+  }
+
+  // ---------- Перевірка того, що повернула модель ----------
+  const isDate = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(new Date(s + 'T12:00:00'));
+  const toMin = (s) => (typeof s === 'string' && /^\d{1,2}:\d{2}$/.test(s) ? u.clamp(u.parseTime(s), 0, 1440) : null);
+  const str = (s, n = 120) => (typeof s === 'string' ? s.trim().slice(0, n) : '');
+  const mood = (m) => (LP.MOODS[m] ? m : 'mid');
+  const bigGoal = (id) => { const g = id && LP.goal(id); return g && g.level !== 'week' ? g : null; };
+  const markOf = (id) => (id && (LP.data.life.marks || []).find((m) => m.id === id)) || null;
+
+  function clean(a) {
+    if (!a || typeof a !== 'object') return null;
+    const title = str(a.title);
+    const goal = bigGoal(a.goal_id);
+    switch (a.type) {
+      case 'event': {
+        const start = toMin(a.start);
+        if (!title || !isDate(a.date) || start == null || start >= 1440) return null;
+        let end = toMin(a.end);
+        if (end == null || end <= start) end = Math.min(start + 60, 1440);
+        return { type: 'event', title, date: a.date, start, end, repeat: a.repeat === 'weekly' ? 'weekly' : 'none', mood: mood(a.mood), bonus: str(a.bonus, 80), goalId: goal ? goal.id : null };
+      }
+      case 'task':
+        if (!title) return null;
+        return { type: 'task', title, mood: mood(a.mood), duration: u.clamp(Math.round(Number(a.minutes) || 60), 5, 600), bonus: str(a.bonus, 80), goalId: goal ? goal.id : null };
+      case 'goal': {
+        if (!title) return null;
+        const level = ['long', 'short', 'week'].includes(a.level) ? a.level : 'short';
+        const kind = ['once', 'count', 'hours', 'amount'].includes(a.kind) ? a.kind : 'once';
+        const target = Number(a.target) > 0 ? Number(a.target) : null;
+        return { type: 'goal', title, level, kind, target, unit: str(a.unit, 12), deadline: isDate(a.deadline) ? a.deadline : null, description: str(a.text, 600) };
+      }
+      case 'progress': {
+        if (!goal) return null;
+        if ((goal.subgoals || []).some((s) => s.title && s.title.trim())) return null; // прогрес підцілей вносять вручну
+        const value = Number(a.value) || (goal.kind === 'once' ? 1 : 0);
+        if (!value) return null;
+        return { type: 'progress', title: goal.title, goalId: goal.id, value, note: str(a.text, 120) };
+      }
+      case 'mark': {
+        if (!title || !isDate(a.date)) return null;
+        const end = isDate(a.end_date) && a.end_date > a.date ? a.end_date : null;
+        return { type: 'mark', title, start: a.date, end };
+      }
+      case 'date':
+        if (!title || !isDate(a.date)) return null;
+        return { type: 'date', title, md: a.date.slice(5), year: Number(a.date.slice(0, 4)) < new Date().getFullYear() ? Number(a.date.slice(0, 4)) : null, kind: ['bday', 'anniv', 'other'].includes(a.date_kind) ? a.date_kind : 'other' };
+      case 'note': {
+        const text = str(a.text, 600) || title;
+        if (!text) return null;
+        const m = markOf(a.mark_id);
+        return { type: 'note', title: text, markId: m ? m.id : null, list: !!(m && a.list) };
+      }
+      default: return null;
+    }
+  }
+
+  // ---------- Як показати дію ----------
+  const dayLabel = (d) => {
+    const today = u.today();
+    if (d === today) return 'СЬОГОДНІ';
+    if (d === u.addDays(today, 1)) return 'ЗАВТРА';
+    return `${u.DAYS_SHORT[u.weekday(d)]} ${u.fmtDay(d)}`.toUpperCase();
+  };
+  const range = (a, b) => (!b ? u.fmtDay(a) : a.slice(0, 7) === b.slice(0, 7) ? `${u.parse(a).getDate()}–${u.fmtDay(b)}` : `${u.fmtDay(a)} — ${u.fmtDay(b)}`);
+  const DATE_KIND = { bday: 'ДЕНЬ НАРОДЖЕННЯ', anniv: 'РІЧНИЦЯ', other: 'ДАТА' };
+  const LEVEL = { long: 'ДОВГА ЦІЛЬ', short: 'КОРОТКА ЦІЛЬ', week: 'ЦІЛЬ ТИЖНЯ' };
+  const fmtVal = (g, v) => (g.kind === 'hours' ? `+${LP.fmtNum(v)} год` : g.kind === 'amount' ? `+${LP.fmtNum(v)}${g.unit ? ' ' + g.unit : ''}` : g.kind === 'once' ? 'виконано' : `+${LP.fmtNum(v)}`);
+  const goalTag = (id) => { const g = LP.goal(id); return g ? ` · ДЛЯ ЦІЛІ ${u.esc(g.tag || g.title)}` : ''; };
+
+  const bonusTag = (a) => (a.bonus && LP.bonusAllowed(a.mood) ? ` · БОНУС: ${u.esc(a.bonus).toUpperCase()}` : '');
+
+  function needsForm(a) {
+    if (a.type !== 'goal' || a.level === 'week') return false;
+    return LP.validateGoal(goalFields(a)).length > 0;
+  }
+  function goalFields(a) {
+    return { title: a.title, tag: LP.makeTag(a.title), level: a.level, kind: a.kind, target: a.kind === 'once' ? null : a.target, unit: a.kind === 'amount' ? a.unit : '',
+      deadline: a.deadline, start: u.today(), description: a.description, subgoals: [] };
+  }
+
+  function meta(a) {
+    switch (a.type) {
+      case 'event': return `СПРАВА · ${dayLabel(a.date)} · ${u.fmtTime(a.start)}–${u.fmtTime(a.end)}${a.repeat === 'weekly' ? ' · ЩОТИЖНЯ' : ''}${goalTag(a.goalId)}${bonusTag(a)}`;
+      case 'task': return `У БЕКЛОГ · ${u.fmtHours ? u.fmtHours(a.duration).toUpperCase() : a.duration + ' ХВ'}${goalTag(a.goalId)}${bonusTag(a)}`;
+      case 'goal': return `${LEVEL[a.level]}${a.kind !== 'once' && a.target ? ` · ${LP.fmtNum(a.target)} ${a.kind === 'hours' ? 'ГОД' : a.kind === 'amount' ? u.esc(a.unit || '').toUpperCase() : 'РАЗІВ'}` : ''}${a.deadline ? ' · ДО ' + u.fmtDay(a.deadline).toUpperCase() : ''}`;
+      case 'progress': { const g = LP.goal(a.goalId); return `ПРОГРЕС · ${u.esc(fmtVal(g, a.value)).toUpperCase()}`; }
+      case 'mark': return `НА «РОЦІ» · ${range(a.start, a.end).toUpperCase()}`;
+      case 'date': { const d = `2000-${a.md}`; return `ЩОРОКУ · ${u.fmtDay(d).toUpperCase()} · ${DATE_KIND[a.kind]}`; }
+      case 'note': { const m = markOf(a.markId); return m ? `${a.list ? 'У СПИСОК' : 'НОТАТКА'} · ${u.esc(m.title).toUpperCase()}` : 'НОТАТКА · ЩОДЕННИК, СЬОГОДНІ'; }
+      default: return '';
+    }
+  }
+
+  function rowHtml(a, i) {
+    const hasMood = a.type === 'event' || a.type === 'task';
+    const needBonus = hasMood && LP.bonusRequired(a.mood) && !a.bonus;
+    const editable = a.type !== 'progress';
+    return `
+      <li class="ai-row" data-i="${i}">
+        <label class="ai-check"><input type="checkbox" name="on${i}" checked><span aria-hidden="true"></span></label>
+        <div class="ai-main">
+          <div class="ai-meta mono">${meta(a)}</div>
+          ${editable ? `<input type="text" class="ai-title" name="t${i}" maxlength="${a.type === 'note' ? 600 : 120}" value="${u.esc(a.title)}" aria-label="Назва">`
+            : `<div class="ai-title is-static">${u.esc(a.title)}</div>`}
+          ${hasMood ? `<div class="ai-bonus ${needBonus ? '' : 'is-hidden'}"><input type="text" name="b${i}" maxlength="80" value="${u.esc(a.bonus || '')}" placeholder="Бонус після важкої справи: що отримаєш"></div>` : ''}
+          ${needsForm(a) ? `<p class="ai-hint">Після «Додати» відкрию форму цілі: там треба дописати опис${a.kind !== 'once' && !a.target ? ' і мету' : ''}.</p>` : ''}
+        </div>
+        ${hasMood ? `<button type="button" class="ai-mood" data-ai-mood="${i}" title="Змінити: приємна, нейтральна, важка">${LP.moodDot(a.mood)}</button>` : ''}
+      </li>`;
+  }
+
+  // ---------- Виконання ----------
+  function apply(list) {
+    const forms = [];
+    let n = 0;
+    const L = LP.data.life;
+    list.forEach((a) => {
+      switch (a.type) {
+        case 'event':
+          LP.addEvent({ title: a.title, date: a.date, start: a.start, end: a.end, repeat: a.repeat, mood: a.mood, bonus: LP.bonusAllowed(a.mood) ? a.bonus : '', goalId: a.goalId });
+          break;
+        case 'task':
+          LP.saveTask({ title: a.title, mood: a.mood, duration: a.duration, bonus: LP.bonusAllowed(a.mood) ? a.bonus : '', goalId: a.goalId, stage: 'backlog' }, true);
+          break;
+        case 'goal':
+          if (a.level === 'week') LP.saveGoal({ level: 'week', title: a.title, week: u.weekStart(u.today()), parentId: null, done: false });
+          else if (needsForm(a)) { forms.push(goalFields(a)); return; }
+          else LP.saveGoal(goalFields(a));
+          break;
+        case 'progress': {
+          const g = LP.goal(a.goalId);
+          if (!g) return;
+          if (g.kind === 'amount') LP.addEntry(g.id, null, a.value, a.note);
+          else if (g.kind === 'once') { if (LP.ownProgress(g).ratio < 1) LP.toggleOnce(g.id, null); }
+          else LP.bump(g.id, null, a.value);
+          break;
+        }
+        case 'mark':
+          L.marks.push({ id: u.uid(), title: a.title, note: '', start: a.start, end: a.end });
+          break;
+        case 'date':
+          L.dates.push({ id: u.uid(), name: a.title, kind: a.kind, md: a.md, year: a.year });
+          break;
+        case 'note': {
+          const m = markOf(a.markId);
+          if (m) {
+            const p = (m.plan = m.plan && typeof m.plan === 'object' ? m.plan : {});
+            p.items = p.items || []; p.list = p.list || [];
+            if (a.list) p.list.push({ id: u.uid(), text: a.title, done: false });
+            else p.notes = (p.notes ? p.notes.replace(/\s+$/, '') + '\n' : '') + a.title;
+          } else {
+            const today = u.today();
+            const e = Object.assign({}, LP.journal(today) || {});
+            e.note = (e.note ? e.note.replace(/\s+$/, '') + '\n' : '') + a.title;
+            LP.saveJournal(today, e);
+          }
+          break;
+        }
+        default: return;
+      }
+      n++;
+    });
+    LP.save();
+    return { n, forms };
+  }
+
+  const ERR = {
+    nokey: 'Помічник ще не ввімкнений: на сервері немає ключа.',
+    limit: 'На сьогодні запити скінчились. Завтра знову.',
+    busy: 'Помічник зараз перевантажений. Спробуй трохи пізніше.',
+    badkey: 'Помічник тимчасово не працює.',
+    money: 'Помічник тимчасово не працює.',
+    auth: 'Увійди в акаунт ще раз.',
+    net: 'Немає звʼязку з сервером.',
+    empty: 'Скажи або напиши, що запланувати.',
+  };
+  const EXAMPLE = 'Наприклад: завтра о 10 зубний, у четвер ввечері подзвонити мамі хвилин на 15, відклав 2000 на синтезатор';
+
+  // ---------- Вікно помічника ----------
+  let draft = '';
+  LP.openAssistant = function ({ listen = false } = {}) {
+    if (!LP.sync || !LP.sync.signedIn) {
+      return LP.modal({
+        title: 'Помічник',
+        body: '<p>Помічник розбирає сказане через сервер, тому працює лише з акаунтом. Увійди, і можна починати.</p>',
+        submitText: 'Увійти',
+        onSubmit: () => { setTimeout(() => LP.openSync && LP.openSync(), 0); },
+      });
+    }
+    let step = 'say';
+    let actions = [];
+    let say = '';
+    let left = null;
+    let busy = false;
+
+    const sayBody = () => `
+      <div class="ai-input">
+        <textarea name="aitext" rows="4" maxlength="1500" placeholder="${u.esc(EXAMPLE)}">${u.esc(draft)}</textarea>
+        ${LP.micHtml('mic-big')}
+      </div>
+      <p class="hint">${LP.voiceSupported ? 'Натисни мікрофон і говори або напиши.' : 'Напиши, що запланувати.'} Справи, цілі, позначки на «Році», нотатки. Перед тим як щось додати, покажу, що зрозумів.</p>
+      <p class="hint ai-privacy">Текст, назви цілей і періодів та зайняті години йдуть у Claude (Anthropic) для розбору й не зберігаються. Решта планера лишається зашифрованою.</p>`;
+
+    const listBody = () => `
+      ${say ? `<p class="ai-say-msg">${u.esc(say)}</p>` : ''}
+      ${actions.length ? `<ul class="ai-list">${actions.map(rowHtml).join('')}</ul>
+        <p class="hint">Зніми галочку з того, що не треба. Назву можна виправити.</p>`
+        : `<p class="ai-say-msg">${say ? '' : 'Не знайшов, що додати. Спробуй сказати інакше: що, коли й на скільки.'}</p>`}
+      ${left != null ? `<p class="hint ai-left mono">СЬОГОДНІ ЛИШИЛОСЬ ЗАПИТІВ: ${left}</p>` : ''}`;
+
+    LP.modal({
+      title: 'Помічник',
+      body: '<div class="ai-body"></div>',
+      submitText: 'Розібрати',
+      extra: [{ text: '‹ Змінити текст', className: 'ai-back', onClick: (form) => { step = 'say'; draw(form); return false; } }],
+      onOpen: (form) => {
+        form.classList.add('ai-modal');
+        draw(form);
+        if (listen) { const b = form.querySelector('[data-mic]'); if (b) b.click(); }
+        form.addEventListener('click', (e) => {
+          const mb = e.target.closest('[data-ai-mood]');
+          if (!mb) return;
+          const i = Number(mb.dataset.aiMood);
+          const order = ['good', 'mid', 'bad'];
+          actions[i].mood = order[(order.indexOf(actions[i].mood) + 1) % 3];
+          mb.innerHTML = LP.moodDot(actions[i].mood);
+          const box = form.querySelector(`.ai-row[data-i="${i}"] .ai-bonus`);
+          if (box) box.classList.toggle('is-hidden', !LP.bonusRequired(actions[i].mood) || !!actions[i].bonus);
+        });
+      },
+      onSubmit: (form) => {
+        if (busy) return false;
+        if (step === 'say') { ask(form); return false; }
+        return confirm(form);
+      },
+    });
+
+    function errors(form, msg) {
+      const box = form.querySelector('.form-errors');
+      box.hidden = !msg;
+      box.textContent = msg || '';
+    }
+    function draw(form) {
+      errors(form, '');
+      LP.stopListening();
+      form.querySelector('.ai-body').innerHTML = step === 'say' ? sayBody() : listBody();
+      form.querySelector('.ai-back').hidden = step === 'say';
+      const sub = form.querySelector('button[type=submit]');
+      sub.textContent = step === 'say' ? 'Розібрати' : actions.length ? 'Додати' : 'Розібрати ще раз';
+      sub.disabled = false;
+      if (step === 'say') {
+        const ta = form.elements.aitext;
+        ta.addEventListener('input', () => { draft = ta.value; });
+        LP.bindMic(form.querySelector('[data-mic]'), ta);
+        if (!LP.isMobile()) setTimeout(() => ta.focus(), 30);
+      }
+    }
+    async function ask(form) {
+      LP.stopListening();
+      const ta = form.elements.aitext;
+      const text = ((ta && ta.value) || draft).trim();
+      draft = text;
+      if (!text) return errors(form, ERR.empty);
+      busy = true;
+      const sub = form.querySelector('button[type=submit]');
+      sub.disabled = true;
+      sub.textContent = 'Розбираю…';
+      errors(form, '');
+      const res = await LP.sync.aiPlan(text, context());
+      busy = false;
+      if (!document.body.contains(form)) return;
+      if (res.error) {
+        sub.disabled = false;
+        sub.textContent = 'Розібрати';
+        return errors(form, res.error === 'limit' && res.limit ? `На сьогодні запити скінчились (${res.limit} на день). Завтра знову.` : ERR[res.error] || 'Не вийшло розібрати. Спробуй ще раз.');
+      }
+      const seen = new Set();
+      actions = (res.actions || []).map(clean).filter((a) => {
+        if (!a) return false;
+        const key = JSON.stringify(a);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      say = typeof res.say === 'string' ? res.say : '';
+      left = typeof res.left === 'number' ? res.left : null;
+      step = 'list';
+      draw(form);
+    }
+    function confirm(form) {
+      if (!actions.length) { step = 'say'; draw(form); return false; }
+      const chosen = [];
+      const errs = [];
+      actions.forEach((a, i) => {
+        if (!form.elements['on' + i].checked) return;
+        const b = Object.assign({}, a);
+        const t = form.elements['t' + i];
+        if (t) b.title = t.value.trim();
+        if (!b.title) return errs.push('Назва не може бути порожньою.');
+        const bonus = form.elements['b' + i];
+        if (bonus) b.bonus = bonus.value.trim() || a.bonus || '';
+        if ((b.type === 'event' || b.type === 'task') && LP.bonusRequired(b.mood) && !b.bonus) {
+          form.querySelector(`.ai-row[data-i="${i}"] .ai-bonus`).classList.remove('is-hidden');
+          return errs.push(`«${b.title}»: важкій справі потрібен бонус. Або натисни на кружечок і зміни, яка це справа.`);
+        }
+        chosen.push(b);
+      });
+      if (errs.length) { errors(form, errs[0]); return false; }
+      if (!chosen.length) { errors(form, 'Не вибрано нічого.'); return false; }
+      const { n, forms } = apply(chosen);
+      draft = '';
+      if (n) LP.toast(n === 1 ? 'Додано' : `Додано: ${n}`);
+      if (forms.length) setTimeout(() => LP.openGoalForm(forms[0]), 0);
+      return true;
+    }
+  };
+
+  const bindBtn = () => {
+    const b = document.getElementById('btn-ai');
+    if (b && !b.dataset.bound) { b.dataset.bound = '1'; b.addEventListener('click', () => LP.openAssistant()); }
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindBtn); else bindBtn();
+})(window.LP);

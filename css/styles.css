@@ -3168,3 +3168,51 @@ body.calm-on { overflow: hidden; }
   .goal-chips { flex-wrap: nowrap; overflow-x: auto; margin: 0 -4px; padding: 2px 4px 6px; scrollbar-width: none; }
   .goal-chip { flex: none; max-width: 70vw; min-height: 44px; }
 }
+
+/* ---------- Голос і помічник ---------- */
+.mic-btn { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border: 1.5px solid var(--ink); border-radius: 999px; background: var(--sheet, #fff); color: var(--ink); cursor: pointer; transition: background .15s, color .15s, box-shadow .15s; }
+.mic-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.mic-btn:hover { background: var(--ink); color: #fff; }
+.mic-btn:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+.mic-btn.is-on { background: var(--red); border-color: var(--red); color: #fff; animation: mic-pulse 1.4s ease-out infinite; }
+@keyframes mic-pulse { 0% { box-shadow: 0 0 0 0 rgba(212, 0, 0, 0.45); } 100% { box-shadow: 0 0 0 14px rgba(212, 0, 0, 0); } }
+@media (prefers-reduced-motion: reduce) { .mic-btn.is-on { animation: none; box-shadow: 0 0 0 4px rgba(212, 0, 0, 0.25); } }
+
+.composer-in { position: relative; flex: 1; min-width: 260px; display: flex; }
+.composer .composer-in input { flex: 1; min-width: 0; width: 100%; }
+.composer-in.has-mic input { padding-right: 50px; }
+.composer-in .mic-in { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 36px; height: 36px; border-width: 0; background: transparent; }
+.composer-in .mic-in:hover { background: rgba(0,0,0,0.07); color: var(--ink); }
+.composer-in .mic-in.is-on { background: var(--red); color: #fff; }
+@media (max-width: 760px) { .composer-in { min-width: 0; flex-basis: 100%; } .composer-in .mic-in { width: 40px; height: 40px; } }
+
+.ai-input { position: relative; }
+.ai-input textarea { width: 100%; box-sizing: border-box; min-height: 120px; padding: 12px 14px; padding-right: 76px; font: inherit; font-size: 16px; line-height: 1.45; resize: vertical; }
+.ai-input .mic-big { position: absolute; right: 10px; bottom: 12px; width: 56px; height: 56px; }
+.ai-input .mic-big svg { width: 26px; height: 26px; }
+.ai-privacy { font-size: 12px; color: #5f5b54; }
+.ai-say-msg { margin: 0 0 12px; padding: 10px 12px; border-left: 3px solid var(--red); background: rgba(0,0,0,0.035); border-radius: 0 10px 10px 0; font-size: 14.5px; line-height: 1.4; }
+.ai-say-msg:empty { display: none; }
+.ai-list { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.ai-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 10px 10px 8px; border: 1.5px solid rgba(0,0,0,0.14); border-radius: 12px; background: var(--sheet, #fff); }
+.ai-row:has(input[type=checkbox]:not(:checked)) { opacity: 0.5; }
+.ai-row:has(input[type=checkbox]:not(:checked)) .ai-title { text-decoration: line-through; }
+.ai-check { position: relative; flex: none; width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; margin-top: 2px; }
+.ai-check input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.ai-check span { width: 22px; height: 22px; border: 2px solid var(--ink); border-radius: 6px; display: block; background: #fff; }
+.ai-check input:checked + span { background: var(--ink) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 16px no-repeat; }
+.ai-check input:focus-visible + span { outline: 2px solid var(--red); outline-offset: 2px; }
+.ai-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.ai-meta { font-size: 11px; letter-spacing: 0.06em; color: #55524c; line-height: 1.35; }
+.ai-title { width: 100%; box-sizing: border-box; min-height: 40px; padding: 6px 8px; margin-left: -8px; border: 1.5px solid transparent; border-radius: 8px; background: transparent; font: inherit; font-size: 16px; font-weight: 700; color: var(--ink); }
+.ai-title:hover { border-color: rgba(0,0,0,0.15); }
+.ai-title:focus { border-color: var(--ink); outline: none; background: #fff; }
+.ai-title.is-static { display: flex; align-items: center; }
+.ai-bonus input { width: 100%; box-sizing: border-box; min-height: 40px; padding: 6px 10px; border: 1.5px dashed var(--red); border-radius: 8px; font: inherit; font-size: 14px; background: #fff; }
+.ai-bonus.is-hidden { display: none; }
+.ai-hint { margin: 0; font-size: 12.5px; color: #55524c; }
+.ai-mood { flex: none; width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 999px; background: transparent; cursor: pointer; margin-top: 2px; }
+.ai-mood:hover { background: rgba(0,0,0,0.06); }
+.ai-mood .mood { transform: scale(1.25); }
+.ai-left { font-size: 11px; letter-spacing: 0.06em; color: #5f5b54; }
+.mast-links .ai-btn svg path:last-child { stroke: var(--red); }
