@@ -11,7 +11,8 @@
   // запис звуку для розпізнавання на сервері: працює майже скрізь, зокрема в Opera
   const CAN_REC = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
   let srFailed = false; // вбудоване розпізнавання вже раз не спрацювало: далі пишемо звук
-  const recReady = () => CAN_REC && !!(LP.sync && LP.sync.signedIn);
+  let sttOff = false;  // сервер сказав, що розпізнавання не ввімкнене: більше туди не йдемо
+  const recReady = () => CAN_REC && !sttOff && !!(LP.sync && LP.sync.signedIn);
   LP.voiceSupported = !!SR || CAN_REC;
 
   // як надиктувати без браузера: системний голосовий ввід пише в будь-яке поле
@@ -62,9 +63,13 @@
         field.value = base && said ? base + (/[.!?,;:]$/.test(base) ? ' ' : ', ') + said : base || said;
         field.dispatchEvent(new Event('input', { bubbles: true }));
       };
+      // Safari на iPhone повідомляє лише onstart (без onaudiostart), тож «почав слухати» — будь-яка з подій
       let started = false;
-      rec.onaudiostart = () => { started = true; if (status) say('Слухаю. Говори, а потім натисни мікрофон ще раз.', 'on'); };
-      rec.onspeechstart = () => { if (status && !heard) say('Чую…', 'on'); };
+      const listening = () => { if (!started && status && !heard) say('Слухаю. Говори, а потім натисни мікрофон ще раз.', 'on'); started = true; };
+      rec.onstart = listening;
+      rec.onaudiostart = listening;
+      rec.onsoundstart = listening;
+      rec.onspeechstart = () => { started = true; if (status && !heard) say('Чую…', 'on'); };
       rec.onresult = (e) => {
         heard = started = true;
         let interim = '';
@@ -74,7 +79,7 @@
           if (e.results[i].isFinal) finals += ' ' + t; else interim += ' ' + t;
         }
         show(interim);
-        if (status) say('Слухаю. Натисни мікрофон, коли закінчиш.', 'on');
+        if (status) say(stopped ? '' : 'Слухаю. Натисни мікрофон, коли закінчиш.', stopped ? '' : 'on');
       };
       rec.onerror = (e) => { failed = e.error || 'error'; };
       const finish = () => {
@@ -89,19 +94,18 @@
         else if (failed === 'language-not-supported') say('Цей браузер не розпізнає українську. ' + LP.dictationHint(), 'err');
         else if (failed === 'service-not-allowed' && /iPhone|iPad|iPod|Macintosh/.test(UA)) say('Розпізнавання мови вимкнене в системі. На iPhone увімкни: Параметри → Загальні → Клавіатура → «Увімкнути диктування», а також Siri. Потім онови сторінку.', 'err');
         else if (failed && failed !== 'no-speech' && failed !== 'aborted') fallback();
-        else if (!heard && (failed === 'no-speech' || Date.now() - t0 > 3000)) say('Нічого не почув. Перевір мікрофон і говори трохи голосніше.', 'err');
-        else if (!heard) fallback();
+        else if (!heard) say('Нічого не почув. Натисни мікрофон, скажи фразу й натисни ще раз.', 'err');
         else say('');
         if (onDone) onDone(field.value);
       };
       // вбудоване не працює: перемикаємось на запис і розпізнавання на сервері
       function fallback() {
         if (!recReady()) return say(LP.dictationHint(), 'err');
-        srFailed = true;
+        if (['network', 'service-not-allowed', 'language-not-supported', 'silent'].includes(failed)) srFailed = true;
         say(`Розпізнавання браузера не спрацювало${failed ? ` (${failed})` : ''}. Натисни мікрофон ще раз: запишу голос і розпізнаю на сервері.`, 'err');
       }
       rec.onend = finish;
-      active = { rec, btn, stop: () => { try { rec.stop(); } catch (e) { /* уже зупинено */ } setTimeout(finish, 1200); } };
+      active = { rec, btn, stop: () => { try { rec.stop(); } catch (e) { /* уже зупинено */ } setTimeout(finish, 2500); } };
       try { rec.start(); } catch (e) { active = null; return say(LP.dictationHint(), 'err'); }
       btn.classList.add('is-on');
       btn.setAttribute('aria-label', 'Зупинити');
@@ -156,9 +160,10 @@
         an.getByteTimeDomainData(data);
         let m = 0;
         for (let i = 0; i < data.length; i++) m = Math.max(m, Math.abs(data[i] - 128));
-        peak = Math.max(peak, m);
+        if (peak >= 0) peak = Math.max(peak, m);
       }, 80);
     } catch (e) { peak = -1; }
+    setTimeout(() => { if (ac && ac.state !== 'running') peak = -1; }, 400);
     const t0 = Date.now();
     let tick = 0, limit = 0, done = false;
     const sec = () => Math.floor((Date.now() - t0) / 1000);
@@ -176,12 +181,13 @@
       cleanup();
       const dur = Date.now() - t0;
       if (dur < 800) return say('Запис надто короткий. Натисни мікрофон, скажи фразу й натисни ще раз.', 'err');
-      if (peak > 0 && peak < 5) return say('Нічого не почув. Перевір мікрофон і говори трохи голосніше.', 'err');
+      if (peak > 0 && peak < 3) return say('Нічого не почув. Перевір мікрофон і говори трохи голосніше.', 'err');
       const blob = new Blob(chunks, { type: mr.mimeType || mime || 'audio/webm' });
       btn.disabled = true;
       say('Розпізнаю…', 'on');
       const res = await LP.sync.stt(blob);
       btn.disabled = false;
+      if (res.error === 'nokey') { sttOff = true; srFailed = false; }
       if (res.error) {
         const msg = res.error === 'limit' && res.limit ? `На сьогодні записи голосу скінчились (${res.limit} на день). Завтра знову, а поки можна написати.` : STT_ERR[res.error] || 'Не вийшло розпізнати. Спробуй ще раз.';
         const mobile = /Android|iPhone|iPad|iPod/i.test(UA);
