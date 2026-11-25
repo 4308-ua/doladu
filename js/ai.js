@@ -87,6 +87,7 @@
         if (failed === 'not-allowed') say('Браузер не дав доступ до мікрофона. Дозволь його в налаштуваннях сайту (значок ліворуч від адреси) і спробуй ще раз.', 'err');
         else if (failed === 'audio-capture') say('Не бачу мікрофона. Перевір, чи він підключений і чи не зайнятий іншою програмою.', 'err');
         else if (failed === 'language-not-supported') say('Цей браузер не розпізнає українську. ' + LP.dictationHint(), 'err');
+        else if (failed === 'service-not-allowed' && /iPhone|iPad|iPod|Macintosh/.test(UA)) say('Розпізнавання мови вимкнене в системі. На iPhone увімкни: Параметри → Загальні → Клавіатура → «Увімкнути диктування», а також Siri. Потім онови сторінку.', 'err');
         else if (failed && failed !== 'no-speech' && failed !== 'aborted') fallback();
         else if (!heard && (failed === 'no-speech' || Date.now() - t0 > 3000)) say('Нічого не почув. Перевір мікрофон і говори трохи голосніше.', 'err');
         else if (!heard) fallback();
@@ -97,7 +98,7 @@
       function fallback() {
         if (!recReady()) return say(LP.dictationHint(), 'err');
         srFailed = true;
-        say('Розпізнавання браузера не спрацювало. Натисни мікрофон ще раз: запишу голос і розпізнаю на сервері.', 'err');
+        say(`Розпізнавання браузера не спрацювало${failed ? ` (${failed})` : ''}. Натисни мікрофон ще раз: запишу голос і розпізнаю на сервері.`, 'err');
       }
       rec.onend = finish;
       active = { rec, btn, stop: () => { try { rec.stop(); } catch (e) { /* уже зупинено */ } setTimeout(finish, 1200); } };
@@ -119,6 +120,7 @@
   // ---------- Запис і розпізнавання на сервері ----------
   const STT_ERR = {
     nokey: 'Розпізнавання голосу на сервері ще не ввімкнене.',
+    timeout: 'Сервер довго не відповідав. Спробуй ще раз або скажи коротше.',
     limit: 'На сьогодні записи голосу скінчились. Завтра знову, а поки можна написати.',
     busy: 'Сервер розпізнавання зараз зайнятий. Спробуй за хвилину.',
     auth: 'Увійди в акаунт ще раз.',
@@ -180,7 +182,11 @@
       say('Розпізнаю…', 'on');
       const res = await LP.sync.stt(blob);
       btn.disabled = false;
-      if (res.error) return say(res.error === 'limit' && res.limit ? `На сьогодні записи голосу скінчились (${res.limit} на день). Завтра знову, а поки можна написати.` : STT_ERR[res.error] || 'Не вийшло розпізнати. Спробуй ще раз.', 'err');
+      if (res.error) {
+        const msg = res.error === 'limit' && res.limit ? `На сьогодні записи голосу скінчились (${res.limit} на день). Завтра знову, а поки можна написати.` : STT_ERR[res.error] || 'Не вийшло розпізнати. Спробуй ще раз.';
+        const mobile = /Android|iPhone|iPad|iPod/i.test(UA);
+        return say(res.error === 'nokey' || res.error === 'net' || res.error === 'timeout' ? msg + (mobile ? ' Поки що натисни на поле й скористайся мікрофоном на клавіатурі телефону.' : ' Поки що відкрий планер у Chrome чи Edge або напиши текст.') : msg, 'err');
+      }
       const said = String(res.text || '').trim();
       if (!said) return say('Нічого не розібрав. Спробуй ще раз, ближче до мікрофона.', 'err');
       const base = field.value.trim();

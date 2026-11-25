@@ -599,9 +599,14 @@ window.LP = window.LP || {};
     // розпізнавання мови на сервері (Groq Whisper) для браузерів без власного
     async stt(blob) {
       let r;
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 30000);
       try {
-        r = await fetch(`${URL_}/functions/v1/stt`, { method: 'POST', headers: { apikey: KEY, Authorization: 'Bearer ' + (await token()), 'Content-Type': (blob.type || 'audio/webm').split(';')[0] }, body: blob });
-      } catch (e) { return { error: 'net' }; }
+        // Safari інколи довго «висить», якщо віддати сам Blob із запису: передаємо готові байти
+        const body = await blob.arrayBuffer();
+        r = await fetch(`${URL_}/functions/v1/stt`, { method: 'POST', signal: ctl.signal, headers: { apikey: KEY, Authorization: 'Bearer ' + (await token()), 'Content-Type': (blob.type || 'audio/webm').split(';')[0] }, body });
+      } catch (e) { clearTimeout(timer); return { error: e && e.name === 'AbortError' ? 'timeout' : 'net' }; }
+      clearTimeout(timer);
       let data = {};
       try { data = await r.json(); } catch (e) { /* порожня відповідь */ }
       return r.ok ? data : { error: data.error || 'upstream', limit: data.limit };
