@@ -201,7 +201,7 @@ window.LP = window.LP || {};
       if (!nowDone) rows += nowRow;
       const idx = segs.indexOf(sg);
       const newSeason = idx === 0 || SEASON(segs[idx - 1].m) !== SEASON(sg.m) || (vPast.length && idx === vPast.length);
-      return `${newSeason ? `<div class="yv-season"><span class="yv-d"></span><i></i><span>${SEASON(sg.m)}</span></div>` : ''}<section class="yv-month ${cur ? 'is-now' : ''} ${sg.to <= today ? 'is-past' : ''}" data-date="${sg.from}"><div class="yv-head"><span class="yv-d"></span><i class="yv-tick"></i><span class="mono yv-mname">${u.MONTHS[sg.m - 1].toUpperCase()} ${sg.y}</span><button type="button" class="yv-add" data-add-in="${cur ? today : sg.from}" aria-label="Додати позначку: ${u.MONTHS[sg.m - 1]}">+</button></div>${rows}</section>`;
+      return `${newSeason ? `<div class="yv-season"><span class="yv-d"></span><i></i><span>${SEASON(sg.m)}</span></div>` : ''}<section class="yv-month ${cur ? 'is-now' : ''} ${sg.to <= today ? 'is-past' : ''}" data-date="${sg.from}"><div class="yv-head"><span class="yv-d"></span><i class="yv-tick"></i><span class="yv-mname">${u.MONTHS[sg.m - 1]}<small>${sg.y}</small></span></div>${rows}</section>`;
     };
     const vline = !mob ? '' : `<div class="yv">${vPast.length ? `<details class="yv-past"><summary><span class="yv-d"></span><i class="yv-tick"></i><span class="mono">РАНІШЕ ЦЬОГО РОКУ · ${vPast.reduce((n, sg) => n + itemsOf(sg).length, 0)}</span></summary>${vPast.map(vMonth).join('')}</details>` : ''}${segs.filter((sg) => !vPast.includes(sg)).map(vMonth).join('')}<div class="yv-end"><span class="yv-d"></span><i class="yv-dot"></i><span class="yv-t mono">${L.birthday ? 'ДЕНЬ НАРОДЖЕННЯ · ' + u.fmtDay(to).toUpperCase() : 'КІНЕЦЬ РОКУ'}</span></div></div>`;
 
@@ -265,7 +265,7 @@ window.LP = window.LP || {};
         </div>
         </div>
         ${vline}
-        <p class="hint yr-legend">${mob ? '«+» біля місяця додає позначку. Щоб додати період, вкажи у формі дату кінця.' : 'Натисни на лінію, щоб поставити позначку, і ще раз, щоб вийшов період. Точку й дугу можна перетягнути. Наведи на рядок, і підсвітиться його точка.'}</p>
+        <p class="hint yr-legend">${mob ? '«+ Позначка» вгорі додає дату. Щоб додати період, вкажи у формі дату кінця. Натисни на позначку, щоб змінити її.' : 'Натисни на лінію, щоб поставити позначку, і ще раз, щоб вийшов період. Точку й дугу можна перетягнути. Наведи на рядок, і підсвітиться його точка.'}</p>
         <div class="yr-cols">
           <div class="yr-col">
             <div class="side-head"><span class="label">НАЙБЛИЖЧЕ</span><span class="mono muted">120 ДН.</span></div>

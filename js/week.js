@@ -124,6 +124,7 @@ window.LP = window.LP || {};
           <li>Натисни на дати тижня вгорі, щоб відкрити календар тижнів. Стрілки ← → на клавіатурі перемикають тиждень.</li>
           <li>Чорні лінії показують підйом і відбій. Перетягни лінію, щоб змінити один день, або натисни на неї, щоб задати звичний час.</li>
           <li>Справу, що повторюється, можна змінити лише на один день або на всі дні одразу.</li>
+          <li>На телефоні перемикач <b>ДЕНЬ / ТИЖДЕНЬ</b> показує всі сім днів одним екраном. Натисни на день, щоб відкрити його.</li>
           <li><b>Мікрофон у шапці</b> відкриває помічника. Скажи чи напиши кількома словами, що треба: справи з часом і в беклог, цілі й внески, позначки на «Році», нотатки, стан дня, звички, сон, оцінки балансу, а ще «зробив» чи «перенеси» про справи, які вже є. Він покаже, що зрозумів, і додасть лише те, що ти підтвердиш. Працює з акаунтом.</li>
           <li>Сині смугасті блоки — події з Google Calendar чи Outlook. Їх видно, але змінюються вони у своєму календарі. Підключити: «Налаштування» → «Календарі».</li>
           <li>Праворуч угорі видно, що зараз і що далі. Цілі тижня можна перетягувати, щоб розставити за важливістю. Невиконані самі переходять на наступний тиждень.</li>
@@ -230,6 +231,49 @@ window.LP = window.LP || {};
         ${trAfter}
       </div>`;
     }).join('');
+  }
+
+  // ---------- Огляд тижня на телефоні: сім вузьких колонок на один екран ----------
+  function overviewHtml(days, byDay, today) {
+    const { dayStart, dayEnd } = LP.data.settings;
+    const H = Math.round(Math.min(640, Math.max(400, window.innerHeight - 320)));
+    const span = (dayEnd - dayStart) * 60;
+    const y = (m) => ((u.clamp(m, dayStart * 60, dayEnd * 60) - dayStart * 60) / span) * H;
+    const ticks = [];
+    for (let h = dayStart + 1; h < dayEnd; h++) if (h % 3 === 0) ticks.push(h);
+    const tNow = nowMin();
+    const head = days.map((d, k) => {
+      const mins = byDay[d].reduce((n, x) => n + (x.o.ev.end - x.o.ev.start), 0);
+      return `<button type="button" class="mw-day ${d === today ? 'is-today' : ''} ${d < today ? 'is-past' : ''} ${k >= 5 ? 'weekend' : ''}" data-mwday="${d}" aria-label="${u.DAYS_LONG[k]}, ${u.fmtDay(d)}: відкрити день">
+        <small>${u.DAYS_SHORT[k].toUpperCase()}</small><b>${u.parse(d).getDate()}</b><i>${mins ? (Math.round(mins / 6) / 10).toString().replace('.', ',') + ' г' : '—'}</i></button>`;
+    }).join('');
+    const cols = days.map((d, k) => {
+      const ext = LP.calItemsOn ? LP.calItemsOn(d).filter((x) => !x.all) : [];
+      const items = layoutLanes(byDay[d].map((x) => Object.assign({}, x, { s: x.o.ev.start, e: x.o.ev.end }))
+        .concat(ext.map((x) => ({ ext: x, s: x.s, e: x.e }))));
+      const blocks = items.map((it) => {
+        const s = it.s, e = it.e;
+        if (e <= dayStart * 60 || s >= dayEnd * 60) return '';
+        const top = y(s), h = Math.max(y(e) - top - 1, 4);
+        const w = 100 / it.lanes;
+        const pos = `top:${top}px;height:${h}px;left:calc(${it.lane * w}% + 1px);width:calc(${w}% - 2px)`;
+        if (it.ext) return `<div class="mw-ev is-ext" style="${pos}" title="${u.esc(it.ext.t)}"></div>`;
+        const ev = it.o.ev;
+        const past = d < today || (d === today && e <= tNow);
+        return `<div class="mw-ev mw-${ev.mood || 'mid'} ${it.o.done ? 'is-done' : ''} ${past ? 'is-past' : ''}" style="${pos}" title="${u.esc(ev.title)} · ${u.fmtTime(s)}–${u.fmtTime(e)}">${h >= 22 && it.lanes === 1 ? `<span>${u.esc(ev.title)}</span>` : ''}</div>`;
+      }).join('');
+      const nowLine = d === today && tNow > dayStart * 60 && tNow < dayEnd * 60 ? `<i class="mw-now" style="top:${y(tNow)}px"></i>` : '';
+      return `<div class="mw-col ${d === today ? 'is-today' : ''} ${k >= 5 ? 'weekend' : ''}" data-mwday="${d}">${blocks}${nowLine}</div>`;
+    }).join('');
+    return `<div class="mw">
+      <div class="mw-head"><span></span>${head}</div>
+      <div class="mw-body" style="height:${H}px">
+        <div class="mw-times">${ticks.map((h) => `<span style="top:${y(h * 60)}px">${String(h).padStart(2, '0')}</span>`).join('')}</div>
+        <div class="mw-grid">${ticks.map((h) => `<i style="top:${y(h * 60)}px"></i>`).join('')}</div>
+        <div class="mw-cols">${cols}</div>
+      </div>
+      <p class="hint mw-hint">Натисни на день, щоб відкрити його. Свайп убік — сусідній тиждень.</p>
+    </div>`;
   }
 
   function hourTip() {
@@ -427,6 +471,8 @@ window.LP = window.LP || {};
     const colTpl = mobile ? 'minmax(0, 1fr)' : days.map((d) => (d === today ? 'minmax(0, 1.45fr)' : 'minmax(0, 1fr)')).join(' ');
     // телефон: чипи днів і рядок обраного дня замість широкої шапки
     let mobileHead = '';
+    const overview = mobile && !!LP.view.mweek;
+    const modeSw = `<div class="m-mode" role="group" aria-label="Як показати"><button type="button" data-mmode="day" class="${overview ? '' : 'on'}" aria-pressed="${!overview}">ДЕНЬ</button><button type="button" data-mmode="week" class="${overview ? 'on' : ''}" aria-pressed="${overview}">ТИЖДЕНЬ</button></div>`;
     if (mobile) {
       const j = LP.journal(mday);
       const list = byDay[mday];
@@ -436,9 +482,13 @@ window.LP = window.LP || {};
       mobileHead = `
         <div class="m-days">${days.map((d, k) => `<button type="button" class="m-day ${d === mday ? 'on' : ''} ${d === today ? 'is-today' : ''} ${k >= 5 ? 'weekend' : ''}" data-mday="${d}">
           <small>${u.DAYS_SHORT[k].toUpperCase()}</small><b>${u.parse(d).getDate()}</b><i>·</i></button>`).join('')}</div>
-        <div class="m-daybar ${mday === today ? 'is-today' : ''}">
-          <span>${u.DAYS_LONG[u.weekday(mday)].toUpperCase()}, ${u.fmtDay(mday).toUpperCase()}${mday === today ? ' · СЬОГОДНІ' : ''}</span>
-${jBtn}</div>`;
+        ${overview ? (() => {
+          const all = days.reduce((n, d) => n + byDay[d].length, 0);
+          const mins = days.reduce((n, d) => n + byDay[d].reduce((k, x) => k + (x.o.ev.end - x.o.ev.start), 0), 0);
+          return `<div class="m-daybar is-week"><span>${u.parse(days[0]).getDate()} — ${u.fmtDay(days[6]).toUpperCase()} · ${all} ${all % 10 === 1 && all % 100 !== 11 ? 'СПРАВА' : [2, 3, 4].includes(all % 10) && ![12, 13, 14].includes(all % 100) ? 'СПРАВИ' : 'СПРАВ'} · ${(Math.round(mins / 6) / 10).toString().replace('.', ',')} ГОД</span>${modeSw}</div>`;
+        })() : `<div class="m-daybar ${mday === today ? 'is-today' : ''}">
+          <span>${u.DAYS_SHORT[u.weekday(mday)].toUpperCase()}, ${u.fmtDay(mday).toUpperCase()}</span>
+${jBtn}${modeSw}</div>`}`;
     }
 
     const cols = (mobile ? [mday] : days).map((d) => {
@@ -481,17 +531,39 @@ ${jBtn}</div>`;
       <div class="week-layout">
         <section class="cal">
           ${empty ? `<div class="cal-hint">Протягни по сітці, щоб додати справу, або <button type="button" class="link-btn" data-sample>завантаж приклад</button>.</div>` : ''}
-          ${mobile ? mobileHead + nowNextHtml(ws) : `<div class="cal-head" style="grid-template-columns:44px ${colTpl}"><div class="cal-corner"></div>${head}</div>`}
-          <div class="cal-body ${fits ? 'is-fit' : ''}">
+          ${mobile ? mobileHead + (overview ? '' : nowNextHtml(ws)) : `<div class="cal-head" style="grid-template-columns:44px ${colTpl}"><div class="cal-corner"></div>${head}</div>`}
+          ${overview ? overviewHtml(days, byDay, today) : `<div class="cal-body ${fits ? 'is-fit' : ''}">
             <div class="cal-inner" style="height:${(dayEnd - dayStart) * HOUR_PX}px">
               <div class="cal-times">${hours.map((h) => `<span style="top:${px(h * 60)}px">${String(h).padStart(2, '0')}</span>`).join('')}</div>
               <div class="cal-cols" style="--hour:${HOUR_PX}px;grid-template-columns:${colTpl}">${cols}</div>
             </div>
-          </div>
+          </div>`}
         </section>
         <aside class="side">${sideHtml(ws, stats, warnings, mobile)}</aside>
       </div>`;
 
+    root.querySelectorAll('[data-mmode]').forEach((b) => b.addEventListener('click', () => { LP.view.mweek = b.dataset.mmode === 'week'; LP.render(); }));
+    if (overview) {
+      // натиск на день — відкрити його; свайп — сусідній тиждень
+      root.querySelectorAll('[data-mwday]').forEach((el) => el.addEventListener('click', () => { LP.view.mday = el.dataset.mwday; LP.view.mweek = false; LP.render(); }));
+      root.querySelectorAll('[data-mday]').forEach((b) => b.addEventListener('click', () => { LP.view.mday = b.dataset.mday; LP.view.mweek = false; LP.render(); }));
+      const mw = root.querySelector('.mw');
+      let sx = null, sy = null;
+      mw.addEventListener('pointerdown', (e) => { sx = e.clientX; sy = e.clientY; });
+      mw.addEventListener('pointerup', (e) => {
+        if (sx == null) return;
+        const dx = e.clientX - sx, dy = e.clientY - sy;
+        sx = null;
+        if (Math.abs(dx) < 60 || Math.abs(dx) < 2 * Math.abs(dy)) return;
+        LP.view.weekStart = u.addDays(ws, dx < 0 ? 7 : -7);
+        LP.view.mday = u.addDays(mday, dx < 0 ? 7 : -7);
+        LP.render();
+      });
+      const side = root.querySelector('.side');
+      side.scrollTop = LP.view.sideScroll || 0;
+      bindSide(root);
+      return;
+    }
     const body = root.querySelector('.cal-body');
     body.scrollTop = fits ? 0 : LP.view.calScroll ?? Math.max(0, (8 - dayStart) * HOUR_PX);
     body.addEventListener('scroll', () => (LP.view.calScroll = body.scrollTop));

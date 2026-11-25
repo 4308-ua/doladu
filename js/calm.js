@@ -30,7 +30,26 @@ window.LP = window.LP || {};
     ['Думки й почуття нікуди не зникли. Але ти тут, і ти тримаєшся.', 5],
     ['Якір кинуто.', 3],
   ];
-  const WORD_MS = 380, FADE_MS = 1100;
+  const FADE_MS = 1100;
+
+  // ---- голос: найприємніший український голос, який є на пристрої ----
+  const VOICE_KEY = 'life-planner.anchorVoice';
+  const synth = window.speechSynthesis || null;
+  const ukVoices = () => (synth ? synth.getVoices().filter((v) => /^uk(-|_|$)/i.test(v.lang)) : []);
+  function bestVoice() {
+    const score = (v) => (/natural|neural|online/i.test(v.name) ? 4 : 0) + (/enhanced|premium|покращ|розшир/i.test(v.name) ? 3 : 0)
+      + (/polina|поліна|lesya|леся/i.test(v.name) ? 1 : 0) + (/google/i.test(v.name) ? 1 : 0);
+    return ukVoices().sort((a, b) => score(b) - score(a))[0] || null;
+  }
+  const voiceOn = () => { try { return localStorage.getItem(VOICE_KEY) !== '0'; } catch (e) { return true; } };
+  // голоси в браузері підвантажуються не одразу
+  const voicesReady = () => new Promise((res) => {
+    if (!synth) return res();
+    if (synth.getVoices().length) return res();
+    const done = () => { synth.removeEventListener && synth.removeEventListener('voiceschanged', done); res(); };
+    if (synth.addEventListener) synth.addEventListener('voiceschanged', done);
+    setTimeout(done, 1200);
+  });
 
   let scene = null;
   function closeScene(fast) {
@@ -38,6 +57,7 @@ window.LP = window.LP || {};
     const s = scene;
     scene = null;
     s.timers.forEach(clearTimeout);
+    if (synth) synth.cancel();
     document.removeEventListener('keydown', s.onKey, true);
     if (s.lock && s.lock.release) s.lock.release().catch(() => {});
     document.body.classList.remove('calm-on');
@@ -46,6 +66,9 @@ window.LP = window.LP || {};
     setTimeout(() => s.el.remove(), fast ? 300 : 1150);
   }
 
+  const SPEAKER_ON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>';
+  const SPEAKER_OFF = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>';
+
   LP.dropAnchor = function () {
     if (scene) return;
     if (LP.closeModal) LP.closeModal();
@@ -53,38 +76,82 @@ window.LP = window.LP || {};
     el.className = 'calm-scene';
     el.setAttribute('role', 'dialog');
     el.setAttribute('aria-label', 'Кинути якір');
-    el.innerHTML = `<div class="calm-glow" aria-hidden="true"></div><p class="calm-line" aria-live="polite"></p><div class="calm-progress" aria-hidden="true"><i></i></div><p class="calm-exit">Натисни будь-де, щоб повернутись</p>`;
+    el.innerHTML = `<div class="calm-blobs" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      <p class="calm-line" aria-live="polite"></p>
+      ${synth ? `<button type="button" class="calm-voice" hidden aria-pressed="${voiceOn()}"></button>` : ''}
+      <div class="calm-progress" aria-hidden="true"><i></i></div><p class="calm-exit">Натисни будь-де, щоб повернутись</p>`;
     document.body.appendChild(el);
     document.body.classList.add('calm-on');
-    const line = el.querySelector('.calm-line'), bar = el.querySelector('.calm-progress i');
-    const s = { el, timers: [], lock: null };
+    const line = el.querySelector('.calm-line'), bar = el.querySelector('.calm-progress i'), vbtn = el.querySelector('.calm-voice');
+    const s = { el, timers: [], lock: null, voice: null, speak: voiceOn() };
     scene = s;
     const later = (fn, ms) => s.timers.push(setTimeout(fn, ms));
     if (navigator.wakeLock && navigator.wakeLock.request) navigator.wakeLock.request('screen').then((l) => { if (scene === s) s.lock = l; else l.release(); }).catch(() => {});
 
+    // iPhone дозволяє говорити лише після дотику: «тихе» слово просто зараз відкриває голос на всю сцену
+    if (synth) { try { synth.cancel(); const u0 = new SpeechSynthesisUtterance(' '); u0.volume = 0; synth.speak(u0); } catch (e) { /* без голосу */ } }
+    const drawVoice = () => {
+      if (!vbtn) return;
+      vbtn.innerHTML = `${s.speak ? SPEAKER_ON : SPEAKER_OFF}<span>${s.speak ? 'Голос' : 'Без голосу'}</span>`;
+      vbtn.setAttribute('aria-pressed', String(s.speak));
+      vbtn.setAttribute('aria-label', s.speak ? 'Вимкнути голос' : 'Увімкнути голос');
+    };
+    voicesReady().then(() => {
+      if (scene !== s) return;
+      s.voice = bestVoice();
+      if (vbtn && s.voice) { vbtn.hidden = false; drawVoice(); }
+    });
+    if (vbtn) vbtn.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      s.speak = !s.speak;
+      try { localStorage.setItem(VOICE_KEY, s.speak ? '1' : '0'); } catch (err) { /* приватний режим */ }
+      if (!s.speak && synth) synth.cancel();
+      drawVoice();
+    });
+
     const still = reduced();
-    const total = ANCHOR.reduce((n, [t, hold]) => n + (still ? 0 : t.split(' ').length * WORD_MS) + hold * 1000 + FADE_MS, 0);
+    const readMs = (t) => 700 + t.split(' ').length * 300;     // скільки читати без голосу
+    const speechMs = (t) => 600 + t.split(' ').length * 430;   // приблизна тривалість голосу
+    const total = ANCHOR.reduce((n, [t, hold]) => n + readMs(t) + hold * 1000 + FADE_MS, 0);
     let spent = 0;
     const show = (i) => {
       if (scene !== s) return;
       if (i >= ANCHOR.length) return closeScene();
       const [text, hold] = ANCHOR[i];
-      const words = text.split(' ');
-      line.classList.remove('is-out');
-      line.innerHTML = words.map((w, k) => `<span style="${still ? '' : `animation-delay:${k * WORD_MS}ms`}">${u.esc(w)}</span>`).join(' ');
-      const reveal = still ? 0 : words.length * WORD_MS;
-      spent += reveal + hold * 1000 + FADE_MS;
+      line.classList.remove('is-out', 'is-in');
+      line.textContent = text;
+      void line.offsetWidth;            // перезапустити появу
+      line.classList.add('is-in');
+      let moved = false;
+      const next = () => {
+        if (moved || scene !== s) return;
+        moved = true;
+        later(() => line.classList.add('is-out'), hold * 1000);
+        later(() => show(i + 1), hold * 1000 + FADE_MS);
+      };
+      const step = readMs(text) + hold * 1000 + FADE_MS;
+      spent += step;
+      bar.style.transitionDuration = step + 'ms';
       bar.style.width = Math.min(100, (spent / total) * 100) + '%';
-      bar.style.transitionDuration = reveal + hold * 1000 + FADE_MS + 'ms';
-      later(() => line.classList.add('is-out'), reveal + hold * 1000);
-      later(() => show(i + 1), reveal + hold * 1000 + FADE_MS);
+      if (s.speak && s.voice && synth) {
+        // речення з'являється разом із голосом; далі — пауза, як і без голосу
+        const ut = new SpeechSynthesisUtterance(text.replace(/[«»]/g, ''));
+        ut.voice = s.voice;
+        ut.lang = s.voice.lang;
+        ut.rate = 0.86;
+        ut.pitch = 1;
+        ut.onend = next;
+        ut.onerror = next;
+        synth.speak(ut);
+        later(next, speechMs(text) * 1.8 + 1500); // запобіжник: деякі браузери не повідомляють про кінець
+      } else later(next, still ? 400 : readMs(text));
     };
     later(() => show(0), 1400);
     // будь-який клік чи клавіша одразу повертає назад (з невеликою затримкою, щоб не спрацювало від кліку, який відкрив)
     s.onKey = (e) => { e.preventDefault(); e.stopPropagation(); closeScene(true); };
     later(() => {
       if (scene !== s) return;
-      el.addEventListener('pointerdown', () => closeScene(true));
+      el.addEventListener('pointerdown', (e) => { if (!e.target.closest('.calm-voice')) closeScene(true); });
       document.addEventListener('keydown', s.onKey, true);
     }, 500);
   };
