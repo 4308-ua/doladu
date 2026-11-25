@@ -30,7 +30,7 @@ const TOOL = {
         items: {
           type: "object",
           properties: {
-            type: { type: "string", enum: ["event", "task", "goal", "progress", "mark", "date", "note"] },
+            type: { type: "string", enum: ["event", "task", "goal", "progress", "mark", "date", "note", "journal", "habit_done", "habit", "balance", "sleep", "done", "move"] },
             title: { type: "string", description: "Short title in the user's language, first letter capitalized, no date or time inside" },
             date: D, end_date: D, start: T, end: T,
             repeat: { type: "string", enum: ["none", "weekly"] },
@@ -48,6 +48,15 @@ const TOOL = {
             text: { type: "string" },
             mark_id: { type: "string" },
             list: { type: "boolean" },
+            habit_id: { type: "string" },
+            area_id: { type: "string" },
+            event_id: { type: "string" },
+            new_date: D,
+            per_week: { type: "integer" },
+            state: { type: "string" },
+            score: { type: "number" },
+            gratitude: { type: "string" },
+            bed: T, wake: T,
           },
           required: ["type", "title"],
         },
@@ -68,11 +77,20 @@ Action types:
 - mark: a multi-day period or a notable day on their Year line (trip, vacation, exam, move) → date, end_date for periods.
 - date: a yearly date (birthday, anniversary) → date (use the current year if the year is unknown), date_kind.
 - note: something to remember with no time. If it belongs to an existing period (see "periods"), set mark_id; list = true for things to take, buy or do there. Otherwise the note goes to today's diary.
+- journal: how they feel today → state (exactly one of "states" from the context, the closest one), score 1–10 for the day if they give one, text = what they said about the day, gratitude = what they are grateful for. Only today. One journal action per request.
+- habit_done: they did an EXISTING habit (see "habits") → habit_id, date (today unless they say yesterday). Skip habits already marked for that date in "habits".
+- habit: a NEW habit they want to keep → title, per_week (1–7).
+- balance: a score for an area of life (see "areas") → area_id, score 0–10. One action per area.
+- sleep: when they went to bed and woke up → date = the morning they woke up, bed, wake (either may be missing).
+- done: they finished an EXISTING scheduled item (see "events") → event_id and date of that occurrence. Skip items already done.
+- move: move an EXISTING scheduled item (see "events") → event_id, date = its current date, new_date, and start/end only if a new time was said.
 
 Rules:
+- Ukrainian hours are often said as ordinals: "о дев'ятнадцятій" = 19:00, "до двадцять першої" = 21:00. Voice recognition may write them half in digits: "20 першої" = 21:00, "20 другої" = 22:00, never 20:01.
 - Use "today", "weekday" and "now" from the context for relative dates. A weekday name means its nearest future date (today counts if that time has not passed yet). "Evening" ≈ 19:00, "morning" ≈ 09:00, "afternoon" ≈ 14:00, "after work" = right after the busy block that ends latest that day.
 - mood for events and tasks: good = pleasant, bad = hard or unpleasant (taxes, dentist, cleaning, difficult calls), mid = neutral. bonus only if they named a reward.
 - goal_id: link an event, task or progress to an existing goal only when it clearly serves it.
+- "events" holds only the scheduled items whose names resemble words in the request. If they talk about doing or moving something that is not there, do not invent an event_id; make a new event or task instead only if that is clearly what they want, otherwise skip it and say so in "say".
 - Titles stay in the person's language and wording, short, without dates or times.
 - Never repeat the same action twice. Ignore filler words and greetings.
 - If nothing can be planned, return empty actions and a short "say".`;

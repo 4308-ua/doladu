@@ -212,7 +212,15 @@
   }
 
   // ---------- Контекст для помічника: лише дата, назви цілей і періодів, зайняті години (без назв справ) ----------
-  function context() {
+  // основи слів: «зубного» і «Зубний» мають спільне «зубн». Так шукаємо справи, про які йдеться у фразі,
+  // і в Claude йдуть назви лише цих справ, а не всього розкладу.
+  const stems = (s) => (String(s).toLowerCase().replace(/[ʼ'’`]/g, '').match(/[a-zа-яіїєґ0-9]{3,}/gi) || []).map((w) => w.slice(0, Math.min(4, w.length - (w.length > 3 ? 1 : 0))));
+  function matchesPhrase(title, phraseStems) {
+    const words = String(title).toLowerCase().replace(/[ʼ'’`]/g, '').match(/[a-zа-яіїєґ0-9]{3,}/gi) || [];
+    return words.some((w) => phraseStems.some((st) => st.length >= 3 && w.startsWith(st)));
+  }
+
+  function context(text = '') {
     const today = u.today();
     const now = new Date();
     const { dayStart, dayEnd } = LP.data.settings;
@@ -229,11 +237,31 @@
     LP.occurrences(today, to).forEach((o) => add(o.date, o.ev.start, o.ev.end));
     if (LP.calItemsOn) for (let d = today; d <= to; d = u.addDays(d, 1)) LP.calItemsOn(d).filter((x) => !x.all).forEach((x) => add(d, x.s, x.e));
     Object.values(busy).forEach((list) => list.sort());
+    const yesterday = u.addDays(today, -1);
+    const habits = LP.data.habits.filter((h) => !h.timed).slice(0, 30).map((h) => {
+      const d = LP.habitDates(h);
+      return { id: h.id, title: h.title, per_week: h.perWeek, done_today: d.has(today), done_yesterday: d.has(yesterday) };
+    });
+    const areas = LP.data.balance.areas.map((a) => ({ id: a.id, name: a.name }));
+    // справи: лише ті, чия назва схожа на слова з фрази (від позавчора до двох тижнів уперед)
+    const ph = stems(text);
+    // для щотижневих справ — лише три найближчі до сьогодні рази, щоб «Робота» не забила весь список
+    const dist = (d) => Math.abs((u.parse(d) - u.parse(today)) / 864e5);
+    const perEv = {};
+    const events = ph.length ? LP.occurrences(u.addDays(today, -2), to)
+      .filter((o) => matchesPhrase(o.ev.title, ph))
+      .sort((a, b) => dist(a.date) - dist(b.date) || (a.date < b.date ? 1 : -1))
+      .filter((o) => (perEv[o.ev.title] = (perEv[o.ev.title] || 0) + 1) <= 3)
+      .slice(0, 15)
+      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.ev.start - b.ev.start))
+      .map((o) => ({ id: o.ev.id, title: o.ev.title, date: o.date, start: u.fmtTime(o.ev.start), end: u.fmtTime(Math.min(o.ev.end, 1439)), done: o.done, weekly: o.ev.repeat === 'weekly' })) : [];
     return {
       today, weekday: u.DAYS_LONG[u.weekday(today)], now: u.fmtTime(now.getHours() * 60 + now.getMinutes()),
       day_start: u.fmtTime(dayStart * 60), day_end: u.fmtTime(Math.min(dayEnd * 60, 1439)), goals, periods, busy,
+      habits, areas, states: LP.STATES, events,
     };
   }
+  LP.aiContext = context;
 
   // ---------- Перевірка того, що повернула модель ----------
   const isDate = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(new Date(s + 'T12:00:00'));
@@ -286,6 +314,47 @@
         const m = markOf(a.mark_id);
         return { type: 'note', title: text, markId: m ? m.id : null, list: !!(m && a.list) };
       }
+      case 'journal': {
+        const state = LP.STATES.includes(a.state) ? a.state : '';
+        const score = Number(a.score) >= 1 && Number(a.score) <= 10 ? Math.round(Number(a.score)) : null;
+        const note = str(a.text, 600), gratitude = str(a.gratitude, 300);
+        if (!state && !score && !note && !gratitude) return null;
+        // назва рядка у списку = нотатка (або вдячність, якщо нотатки немає); її можна виправити
+        return { type: 'journal', title: note || gratitude || (state ? state[0].toUpperCase() + state.slice(1) : `День на ${score}`), field: note ? 'note' : gratitude ? 'gratitude' : '', state, score, gratitude };
+      }
+      case 'habit_done': {
+        const h = LP.habit(a.habit_id);
+        if (!h || h.timed) return null;
+        const date = a.date === u.addDays(u.today(), -1) ? a.date : u.today();
+        if (LP.habitDates(h).has(date)) return null;
+        return { type: 'habit_done', title: h.title, habitId: h.id, date };
+      }
+      case 'habit':
+        if (!title) return null;
+        return { type: 'habit', title, perWeek: u.clamp(Math.round(Number(a.per_week) || 7), 1, 7) };
+      case 'balance': {
+        const ar = LP.data.balance.areas.find((x) => x.id === a.area_id);
+        const score = Number(a.score);
+        if (!ar || !(score >= 0 && score <= 10)) return null;
+        return { type: 'balance', title: ar.name, areaId: ar.id, score: Math.round(score) };
+      }
+      case 'sleep': {
+        const wake = toMin(a.wake), bed = toMin(a.bed);
+        if (!isDate(a.date) || (wake == null && bed == null) || a.date > u.today()) return null;
+        return { type: 'sleep', title: 'Сон', date: a.date, wake, bed };
+      }
+      case 'done': case 'move': {
+        const ev = LP.event(a.event_id);
+        if (!ev || !isDate(a.date)) return null;
+        const occ = LP.occurrences(a.date, a.date).find((o) => o.ev.id === ev.id);
+        if (!occ) return null;
+        if (a.type === 'done') return occ.done ? null : { type: 'done', title: ev.title, eventId: ev.id, date: a.date };
+        if (!isDate(a.new_date)) return null;
+        let start = toMin(a.start); let end = toMin(a.end);
+        if (start == null) { start = ev.start; end = ev.end; } else if (end == null || end <= start) end = Math.min(start + (ev.end - ev.start), 1440);
+        if (a.new_date === a.date && start === ev.start && end === ev.end) return null;
+        return { type: 'move', title: ev.title, eventId: ev.id, date: a.date, newDate: a.new_date, start, end, weekly: ev.repeat === 'weekly' };
+      }
       default: return null;
     }
   }
@@ -323,6 +392,13 @@
       case 'mark': return `НА «РОЦІ» · ${range(a.start, a.end).toUpperCase()}`;
       case 'date': { const d = `2000-${a.md}`; return `ЩОРОКУ · ${u.fmtDay(d).toUpperCase()} · ${DATE_KIND[a.kind]}`; }
       case 'note': { const m = markOf(a.markId); return m ? `${a.list ? 'У СПИСОК' : 'НОТАТКА'} · ${u.esc(m.title).toUpperCase()}` : 'НОТАТКА · ЩОДЕННИК, СЬОГОДНІ'; }
+      case 'journal': return `ЩОДЕННИК · СЬОГОДНІ${a.state ? ' · ' + u.esc(a.state).toUpperCase() : ''}${a.score ? ` · ${a.score}/10` : ''}${a.field === 'note' && a.gratitude ? ' · ВДЯЧНІСТЬ: ' + u.esc(a.gratitude).toUpperCase() : a.field === 'gratitude' ? ' · ВДЯЧНІСТЬ' : ''}`;
+      case 'habit_done': return `ЗВИЧКА · ВИКОНАНО ${a.date === u.today() ? 'СЬОГОДНІ' : 'ВЧОРА'}`;
+      case 'habit': return `НОВА ЗВИЧКА · ${a.perWeek === 7 ? 'ЩОДНЯ' : a.perWeek + ' РАЗ' + (a.perWeek > 1 && a.perWeek < 5 ? 'И' : 'ІВ') + ' НА ТИЖДЕНЬ'}`;
+      case 'balance': { const old = LP.areaScore ? LP.areaScore(a.areaId) : null; return `БАЛАНС · ${typeof old === 'number' ? old + ' → ' : ''}${a.score}/10`; }
+      case 'sleep': return `СОН · ${a.bed != null ? 'ВІДБІЙ ' + u.fmtTime(a.bed % 1440) : ''}${a.bed != null && a.wake != null ? ' · ' : ''}${a.wake != null ? 'ПІДЙОМ ' + u.fmtTime(a.wake) : ''} · ${dayLabel(a.date)}`;
+      case 'done': return `ВИКОНАНО · ${dayLabel(a.date)}`;
+      case 'move': return `ПЕРЕНЕСТИ · ${dayLabel(a.date)} → ${dayLabel(a.newDate)}, ${u.fmtTime(a.start)}–${u.fmtTime(a.end)}${a.weekly ? ' · ЛИШЕ ЦЕЙ РАЗ' : ''}`;
       default: return '';
     }
   }
@@ -330,7 +406,7 @@
   function rowHtml(a, i) {
     const hasMood = a.type === 'event' || a.type === 'task';
     const needBonus = hasMood && LP.bonusRequired(a.mood) && !a.bonus;
-    const editable = a.type !== 'progress';
+    const editable = !['progress', 'habit_done', 'balance', 'sleep', 'done', 'move'].includes(a.type) && !(a.type === 'journal' && !a.field);
     return `
       <li class="ai-row" data-i="${i}">
         <label class="ai-check"><input type="checkbox" name="on${i}" checked><span aria-hidden="true"></span></label>
@@ -392,6 +468,48 @@
           }
           break;
         }
+        case 'journal': {
+          const today = u.today();
+          const e = Object.assign({}, LP.journal(today) || {});
+          if (a.state) e.state = a.state;
+          if (a.score) e.score = a.score;
+          const add = (k, t) => { if (t) e[k] = (e[k] ? e[k].replace(/\s+$/, '') + '\n' : '') + t; };
+          if (a.field === 'note') { add('note', a.title); add('gratitude', a.gratitude); }
+          else if (a.field === 'gratitude') add('gratitude', a.title);
+          LP.saveJournal(today, e);
+          break;
+        }
+        case 'habit_done':
+          if (!LP.habitDates(LP.habit(a.habitId)).has(a.date)) LP.toggleHabit(a.habitId, a.date);
+          break;
+        case 'habit':
+          LP.saveHabit({ title: a.title, perWeek: a.perWeek });
+          break;
+        case 'balance':
+          LP.setAreaScore(a.areaId, a.score);
+          break;
+        case 'sleep':
+          if (a.wake != null) LP.setSleep(a.date, { wake: a.wake });
+          // відбій належить до попереднього вечора; «ліг о першій» — це вже після опівночі (24:00 + 1 год)
+          if (a.bed != null) LP.setSleep(u.addDays(a.date, -1), { bed: a.bed < 12 * 60 ? a.bed + 1440 : a.bed });
+          break;
+        case 'done': {
+          const occ = LP.occurrences(a.date, a.date).find((o) => o.ev.id === a.eventId);
+          if (occ && !occ.done) LP.toggleDone(a.eventId, a.date);
+          break;
+        }
+        case 'move': {
+          const ev = LP.event(a.eventId);
+          if (!ev) return;
+          if (ev.repeat === 'weekly') {
+            // повторювану справу переносимо лише цього разу: пропуск у серії + окрема справа на новий день
+            ev.skipDates.push(a.date);
+            const copy = Object.assign({}, ev, { id: u.uid(), date: a.newDate, start: a.start, end: a.end, repeat: 'none', until: null, doneDates: [], skipDates: [] });
+            delete copy.group;
+            LP.data.events.push(copy);
+          } else LP.rescheduleEvent(a.eventId, a.date, { date: a.newDate, start: a.start, end: a.end });
+          break;
+        }
         default: return;
       }
       n++;
@@ -412,6 +530,43 @@
   };
   const EXAMPLE = 'Наприклад: завтра о 10 зубний, у четвер ввечері подзвонити мамі хвилин на 15, відклав 2000 на синтезатор';
 
+  // ---------- Згода і прозорість ----------
+  const PRIVACY = `
+    <div class="label">ЩО ЙДЕ НА СЕРВЕР ПІД ЧАС ЗАПИТУ</div>
+    <ul class="ai-ul">
+      <li>Те, що ти сказав або написав.</li>
+      <li>Сьогоднішня дата, назви незакритих цілей, звичок, сфер балансу й майбутніх періодів.</li>
+      <li>Зайняті години на два тижні без назв і назви лише тих справ, про які, схоже, йдеться у фразі.</li>
+    </ul>
+    <div class="label">ЧОГО НЕ ЙДЕ</div>
+    <ul class="ai-ul"><li>Записи щоденника, оцінки, нотатки й люди, які вже є в планері, і решта розкладу. Вони лишаються зашифрованими.</li></ul>
+    <p class="hint">Помічник працює на Claude від Anthropic. Anthropic не навчає моделі на цих даних і видаляє їх протягом 30 днів. Наш сервер нічого з цього не зберігає. Голос у Chrome розпізнає Google, у Safari — Apple, в інших браузерах — Groq.</p>`;
+  function openConsent() {
+    LP.modal({
+      title: 'Помічник',
+      body: `<p>Скажи або напиши кількома словами, що треба: справи, цілі, звички, сон, стан, баланс. Помічник покаже, що зрозумів, і додасть лише те, що ти підтвердиш.</p>${PRIVACY}
+        <p class="hint">Вимкнути можна будь-коли в налаштуваннях.</p>`,
+      submitText: 'Увімкнути',
+      onSubmit: () => { LP.data.settings.aiOk = true; LP.save({ render: false }); setTimeout(() => LP.openAssistant(), 200); },
+    });
+  }
+  // те, що справді піде з цією фразою, людською мовою
+  function whatHtml(text) {
+    const c = context(text);
+    const list = (arr) => (arr.length ? arr.map((x) => `«${u.esc(x)}»`).join(', ') : 'немає');
+    const busyN = Object.values(c.busy).reduce((s, l) => s + l.length, 0);
+    return `<ul class="ai-ul">
+      <li><b>Фраза:</b> ${text.trim() ? `«${u.esc(text.trim())}»` : 'поки порожньо'}</li>
+      <li><b>Сьогодні:</b> ${u.esc(c.weekday)}, ${u.fmtDay(c.today)}, ${c.now}</li>
+      <li><b>Цілі:</b> ${list(c.goals.map((g) => g.title))}</li>
+      <li><b>Звички:</b> ${list(c.habits.map((h) => h.title))}</li>
+      <li><b>Сфери балансу:</b> ${list(c.areas.map((a) => a.name))}</li>
+      <li><b>Періоди на «Році»:</b> ${list(c.periods.map((p) => p.title))}</li>
+      <li><b>Справи, схожі на слова з фрази:</b> ${list(c.events.map((e) => e.title))}</li>
+      <li><b>Зайняті проміжки без назв:</b> ${busyN} на два тижні</li>
+    </ul>${PRIVACY.replace(/[\s\S]*?<p class="hint">/, '<p class="hint">')}`;
+  }
+
   // ---------- Вікно помічника ----------
   let draft = '';
   LP.openAssistant = function ({ listen = false } = {}) {
@@ -423,6 +578,7 @@
         onSubmit: () => { setTimeout(() => LP.openSync && LP.openSync(), 0); },
       });
     }
+    if (!LP.data.settings.aiOk) return openConsent();
     let step = 'say';
     let actions = [];
     let say = '';
@@ -436,7 +592,7 @@
       </div>
       <p class="ai-status" role="status" aria-live="polite" hidden></p>
       <p class="hint">${LP.voiceSupported ? 'Натисни мікрофон і говори або напиши.' : 'Напиши або надиктуй (як саме, підкаже мікрофон).'} Справи, цілі, позначки на «Році», нотатки. Перед тим як щось додати, покажу, що зрозумів.</p>
-      <p class="hint ai-privacy">Текст, назви цілей і періодів та зайняті години йдуть у Claude (Anthropic) для розбору й не зберігаються. Решта планера лишається зашифрованою.</p>`;
+      <details class="ai-what"><summary class="mono">ЩО САМЕ ПІДЕ В CLAUDE</summary><div class="ai-what-body"></div></details>`;
 
     const listBody = () => `
       ${say ? `<p class="ai-say-msg">${u.esc(say)}</p>` : ''}
@@ -488,6 +644,9 @@
       if (step === 'say') {
         const ta = form.elements.aitext;
         ta.addEventListener('input', () => { draft = ta.value; });
+        const what = form.querySelector('.ai-what');
+        what.addEventListener('toggle', () => { if (what.open) what.querySelector('.ai-what-body').innerHTML = whatHtml(ta.value); });
+        ta.addEventListener('input', () => { if (what.open) what.querySelector('.ai-what-body').innerHTML = whatHtml(ta.value); });
         const st = form.querySelector('.ai-status');
         LP.bindMic(form.querySelector('[data-mic]'), ta, { status: (t, kind) => { st.hidden = !t; st.textContent = t || ''; st.className = 'ai-status' + (kind ? ' is-' + kind : ''); } });
         if (!LP.isMobile()) setTimeout(() => ta.focus(), 30);
@@ -504,7 +663,7 @@
       sub.disabled = true;
       sub.textContent = 'Розбираю…';
       errors(form, '');
-      const res = await LP.sync.aiPlan(text, context());
+      const res = await LP.sync.aiPlan(text, context(text));
       busy = false;
       if (!document.body.contains(form)) return;
       if (res.error) {

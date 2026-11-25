@@ -334,6 +334,7 @@ window.LP = window.LP || {};
         <p class="hint">Ctrl+Z скасовує останню дію, Ctrl+Y повертає. Історія дій зберігається, поки відкрита сторінка.</p>
         <p class="hint">Час від часу роби «Експорт». Це твоя резервна копія у файлі.</p>
         <div class="set-file"><span class="mono">GOOGLE CALENDAR, OUTLOOK</span><button type="button" class="btn btn-sm" data-set-cals>Календарі →</button></div>
+        <div class="set-file"><span class="mono">ПОМІЧНИК · ${LP.data.settings.aiOk ? 'УВІМКНЕНО' : 'ВИМКНЕНО'}</span><button type="button" class="btn btn-sm" data-set-ai>${LP.data.settings.aiOk ? 'Вимкнути' : 'Що це →'}</button></div>
         <div class="set-file"><span class="mono">КОПІЯ У ФАЙЛІ</span><button type="button" class="btn btn-sm" data-set-export>Експорт</button><button type="button" class="btn btn-sm" data-set-import>Імпорт</button></div>
         <p><button type="button" class="link-btn" data-tour-again>ПОКАЗАТИ ТУР ЩЕ РАЗ →</button> &nbsp; <button type="button" class="link-btn" data-set-feedback>НАПИСАТИ ВІДГУК →</button></p>`,
       extra: [{
@@ -410,6 +411,15 @@ window.LP = window.LP || {};
         form.querySelector('[data-set-export]').addEventListener('click', () => { LP.closeModal(); document.getElementById('btn-export').click(); });
         form.querySelector('[data-set-import]').addEventListener('click', () => { LP.closeModal(); document.getElementById('btn-import').click(); });
         form.querySelector('[data-set-cals]').addEventListener('click', () => { LP.closeModal(); setTimeout(LP.openCalendars, 200); });
+        form.querySelector('[data-set-ai]').addEventListener('click', (e) => {
+          if (LP.data.settings.aiOk) {
+            LP.data.settings.aiOk = false;
+            LP.save({ render: false });
+            e.target.textContent = 'Що це →';
+            e.target.previousElementSibling.textContent = 'ПОМІЧНИК · ВИМКНЕНО';
+            LP.toast('Помічника вимкнено');
+          } else { LP.closeModal(); setTimeout(() => LP.openAssistant(), 200); }
+        });
         form.querySelector('[data-set-feedback]').addEventListener('click', () => { LP.closeModal(); setTimeout(LP.openFeedback, 200); });
       },
       onSubmit: (form) => {

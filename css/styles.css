@@ -3229,3 +3229,9 @@ html:has(.modal-backdrop:not(.is-leaving)), html:has(.modal-backdrop:not(.is-lea
   .modal-backdrop { z-index: 165; padding-top: calc(10px + env(safe-area-inset-top)); }
   .pop { z-index: 168; }
 }
+.ai-what { margin-top: 10px; }
+.ai-what summary { cursor: pointer; font-size: 11px; letter-spacing: 0.06em; color: #55524c; min-height: 36px; display: flex; align-items: center; }
+.ai-what summary:hover { color: var(--ink); }
+.ai-what-body { padding: 4px 0 2px; font-size: 13.5px; line-height: 1.45; }
+.ai-ul { margin: 4px 0 10px; padding-left: 18px; font-size: 14px; line-height: 1.45; }
+.ai-ul li { margin: 2px 0; }

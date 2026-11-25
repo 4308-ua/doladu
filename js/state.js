@@ -177,6 +177,7 @@ window.LP = window.LP || {};
       // Telegram: куди писати, за скільки хвилин нагадувати (-1 — ні), о котрій надсилати план дня (-1 — ні)
       tgChat: d.settings && d.settings.tgChat ? String(d.settings.tgChat).trim() : '',
       calToken: d.settings && /^[0-9a-f]{24,64}$/.test(d.settings.calToken || '') ? d.settings.calToken : '',
+      aiOk: !!(d.settings && d.settings.aiOk), // людина погодилась, що фраза й назви йдуть у Claude
       remindBefore: d.settings && Number.isFinite(d.settings.remindBefore) ? d.settings.remindBefore : 10,
       morningAt: d.settings && Number.isFinite(d.settings.morningAt) ? d.settings.morningAt : 8 * 60,
       tourDone: !!(d.settings && d.settings.tourDone),
