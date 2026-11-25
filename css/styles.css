@@ -3333,3 +3333,37 @@ html:has(.modal-backdrop:not(.is-leaving)), html:has(.modal-backdrop:not(.is-lea
   .m-daybar.is-today .m-mode button.on { background: #fff; color: var(--red); }
   .m-daybar > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
+
+/* цілі тижня: перетягування за крапки, решта картки гортає список */
+.wg-card { touch-action: pan-y; padding-right: 4px; }
+.wg-grip { flex: none; align-self: stretch; display: grid; grid-template-columns: repeat(2, 4px); grid-auto-rows: 4px; gap: 3px; align-content: center; justify-content: center; width: 32px; margin: -8px -4px -8px 0; border-radius: 0 10px 10px 0; cursor: var(--c-grab); touch-action: none; opacity: 0.45; transition: opacity .15s, background .15s; }
+.wg-grip i { width: 4px; height: 4px; border-radius: 50%; background: var(--ink); }
+.wg-card:hover .wg-grip, .wg-grip:active { opacity: 0.85; }
+.wg-grip:active { background: rgba(0,0,0,0.06); cursor: var(--c-grabbing); }
+@media (max-width: 760px) { .wg-grip { width: 40px; opacity: 0.6; } .wg-card { cursor: pointer; } }
+
+/* ===== рік на телефоні: кожен місяць — окрема картка на лінії ===== */
+@media (max-width: 760px) {
+  .yv-month { position: relative; margin: 0 0 12px; padding: 2px 12px 8px 0; border-radius: 14px; background: rgba(255, 255, 255, 0.72); box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+  .yv-month.is-now { background: #fff; box-shadow: 0 0 0 1.5px var(--red), 0 2px 8px rgba(0,0,0,0.06); }
+  .yv-month.is-past { background: rgba(255, 255, 255, 0.4); box-shadow: none; }
+  /* лінія тягнеться крізь проміжок між картками */
+  .yv-month::after { content: ''; position: absolute; left: var(--rail); bottom: -12px; height: 12px; border-left: 2px dotted var(--ink); transform: translateX(-1px); }
+  .yv-month.is-past::after { border-left-style: solid; }
+  .yv-head { padding: 12px 0 6px; }
+  .yv-mname { font-size: 16px; border-bottom: 1px solid #e3dfd5; padding-bottom: 7px; }
+  .yv-month.is-now .yv-mname { border-bottom-color: color-mix(in srgb, var(--red) 35%, transparent); }
+  .yv-month.is-past .yv-mname { border-bottom-color: #e3dfd5; color: #8b887f; }
+  .yv-it.is-cont .yv-dot { width: 6px; height: 6px; background: transparent; border: 1.5px solid #8b887f; box-sizing: border-box; box-shadow: none; }
+  .yv-it.is-cont .yv-t { font-size: 13px; font-weight: 500; color: #6a675f; }
+  .yv-it.is-cont .yv-t small { color: #8b887f; }
+  .yv-it.is-cont { min-height: 30px; }
+  .yv-month .yv-it:last-child { padding-bottom: 2px; }
+  .yv-season { padding-top: 6px; padding-bottom: 6px; }
+  .yv-season span:last-child { border-top: 0; padding-top: 0; }
+  .yv-span { z-index: 1; }
+  /* порожній місяць — без зайвої висоти */
+  .yv-month:not(:has(.yv-it, .yv-now)) { padding-bottom: 0; }
+  .yv-month:not(:has(.yv-it, .yv-now)) .yv-mname { border-bottom: 0; }
+  .yv-month:not(:has(.yv-it, .yv-now)) .yv-mname::after { content: 'нічого не позначено'; margin-left: auto; font-family: var(--mono); font-size: 10.5px; font-weight: 500; letter-spacing: 0.04em; text-transform: none; color: #8b887f; }
+}

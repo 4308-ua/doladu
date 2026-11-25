@@ -357,6 +357,7 @@ window.LP = window.LP || {};
                 <div class="wg-name">${u.esc(g.title)}</div>
                 ${meta ? `<div class="wg-meta">${meta}</div>` : ''}
               </div>
+              <span class="wg-grip" aria-hidden="true" title="Тягни за крапки, щоб змінити порядок"><i></i><i></i><i></i><i></i><i></i><i></i></span>
             </li>`;
         }).join('')
       : `<li class="empty-note">Цілей на тиждень ще немає</li>`;
@@ -601,10 +602,17 @@ ${jBtn}${modeSw}</div>`}`;
     // цілі тижня: тягни картку вгору-вниз — пріоритет / що за чим; клік — змінити
     const list = root.querySelector('.wg-cards');
     if (list) list.querySelectorAll('.wg-card').forEach((card) => {
+      // на телефоні тягнемо лише за крапки праворуч: решта картки гортає список і відкривається натиском
+      card.addEventListener('click', (e) => {
+        if (card._mouse || e.target.closest('.wg-check, .wg-grip')) return;
+        LP.openGoalForm(LP.goal(card.dataset.wgid));
+      });
       card.addEventListener('pointerdown', (e) => {
+        card._mouse = e.pointerType === 'mouse';
         if (e.button !== 0 || e.target.closest('.wg-check')) return;
+        if (!card._mouse && !e.target.closest('.wg-grip')) return;
         e.preventDefault();
-        const y0 = e.clientY;
+        const y0 = e.clientY, e0 = e;
         let moved = false;
         const cards = () => Array.from(list.querySelectorAll('.wg-card'));
         const move = (m) => {
@@ -620,7 +628,10 @@ ${jBtn}${modeSw}</div>`}`;
         const up = () => {
           window.removeEventListener('pointermove', move);
           window.removeEventListener('pointerup', up);
-          if (!moved) return LP.openGoalForm(LP.goal(card.dataset.wgid));
+          if (!moved) {
+            card.classList.remove('is-dragging');
+            return card._mouse && !e0.target.closest('.wg-grip') ? LP.openGoalForm(LP.goal(card.dataset.wgid)) : undefined;
+          }
           const others = cards().filter((c) => c !== card);
           const before = others.find((c) => c.classList.contains('drop-before'));
           const ids = others.map((c) => c.dataset.wgid);

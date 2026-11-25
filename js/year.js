@@ -199,6 +199,10 @@ window.LP = window.LP || {};
         rows += vRow(e);
       });
       if (!nowDone) rows += nowRow;
+      // період, що почався раніше й триває в цьому місяці, — тихий рядок угорі місяця
+      const cont = (L.marks || []).filter((m) => m.end && m.start < sg.from && m.end >= sg.from)
+        .map((m) => `<button type="button" class="yv-it is-cont ${m.end < today ? 'is-past' : ''}" data-mark="${m.id}"><span class="yv-d"></span><i class="yv-dot"></i><span class="yv-t">${u.esc(m.title)}<small> · триває до ${u.fmtDay(m.end)}</small></span></button>`).join('');
+      rows = cont + rows;
       const idx = segs.indexOf(sg);
       const newSeason = idx === 0 || SEASON(segs[idx - 1].m) !== SEASON(sg.m) || (vPast.length && idx === vPast.length);
       return `${newSeason ? `<div class="yv-season"><span class="yv-d"></span><i></i><span>${SEASON(sg.m)}</span></div>` : ''}<section class="yv-month ${cur ? 'is-now' : ''} ${sg.to <= today ? 'is-past' : ''}" data-date="${sg.from}"><div class="yv-head"><span class="yv-d"></span><i class="yv-tick"></i><span class="yv-mname">${u.MONTHS[sg.m - 1]}<small>${sg.y}</small></span></div>${rows}</section>`;
