@@ -131,7 +131,7 @@ window.LP = window.LP || {};
       <div class="board-page">
         <div class="board-main">
           <form class="composer" autocomplete="off">
-            <div class="composer-in ${LP.voiceSupported ? 'has-mic' : ''}">
+            <div class="composer-in ${LP.micHtml ? 'has-mic' : ''}">
               <input type="text" name="title" maxlength="120" placeholder="${LP.voiceSupported ? 'Що хочеш зробити? Напиши або надиктуй, Enter кладе на дошку' : 'Що хочеш зробити? Enter кладе на дошку'}">
               ${LP.micHtml ? LP.micHtml('mic-in') : ''}
             </div>

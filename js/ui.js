@@ -523,7 +523,7 @@ window.LP = window.LP || {};
     el.className = 'toast';
     el.textContent = text;
     document.body.appendChild(el);
-    setTimeout(() => el.remove(), 1800);
+    setTimeout(() => el.remove(), Math.max(1800, String(text).length * 55));
   };
 
   // ---------------- Текст із виділеннями маркером ----------------

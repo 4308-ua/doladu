@@ -3,35 +3,61 @@
 // повертається список дій; планер показує їх і виконує лише те, що людина підтвердила.
 (function (LP) {
   const u = LP.u;
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const SR0 = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const UA = navigator.userAgent || '';
+  // Opera, Brave, Vivaldi, Яндекс мають кнопку розпізнавання, але без сервера Google вона мовчить
+  const BROKEN = /OPR\/|Opera|Vivaldi|YaBrowser|SamsungBrowser\/[0-9]\./i.test(UA) || !!navigator.brave;
+  const SR = BROKEN ? null : SR0;
   LP.voiceSupported = !!SR;
 
+  // як надиктувати без браузера: системний голосовий ввід пише в будь-яке поле
+  LP.dictationHint = function () {
+    const mobile = /Android|iPhone|iPad|iPod/i.test(UA) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(UA));
+    const tail = mobile ? 'Натисни на поле й скористайся мікрофоном на клавіатурі телефону.'
+      : /Windows/i.test(UA) ? 'Натисни на поле й натисни Win + H: голосовий ввід Windows пише прямо в нього.'
+      : /Mac/i.test(UA) ? 'Натисни на поле й двічі натисни Fn або 🌐: диктування macOS пише прямо в нього.'
+      : 'Скористайся голосовим вводом системи або відкрий планер у Chrome.';
+    return `${BROKEN ? 'Цей браузер не розпізнає голос.' : 'Голос тут не спрацював.'} ${tail} Голос браузера працює в Chrome, Edge і Safari.`;
+  };
+
   const MIC_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/></svg>`;
-  LP.micHtml = (cls = '') => (SR ? `<button type="button" class="mic-btn ${cls}" data-mic aria-label="Говорити" title="Натисни й говори. Ще раз, щоб зупинити">${MIC_SVG}</button>` : '');
+  // кнопку показуємо завжди: де голосу браузера немає, натиск підкаже системне диктування
+  LP.micHtml = (cls = '') => `<button type="button" class="mic-btn ${cls} ${SR ? '' : 'is-off'}" data-mic aria-label="Говорити" title="${SR ? 'Натисни й говори. Ще раз, щоб зупинити' : 'Як надиктувати'}">${MIC_SVG}</button>`;
 
   // ---------- Голос ----------
   let active = null; // { rec, btn, stop }
   LP.stopListening = () => { if (active) active.stop(); };
 
   // btn — кнопка мікрофона, field — input/textarea, куди дописується текст
-  LP.bindMic = function (btn, field, { onDone } = {}) {
-    if (!btn || !field || !SR) return;
+  // status(text, kind) — куди писати стан ('' прибирає); без нього — короткі сповіщення
+  LP.bindMic = function (btn, field, { onDone, status } = {}) {
+    if (!btn || !field) return;
+    const say = status || ((t) => { if (t) LP.toast(t); });
     btn.addEventListener('click', () => {
+      if (!SR) { say(LP.dictationHint(), 'err'); field.focus(); return; }
       if (active && active.btn === btn) return active.stop();
       LP.stopListening();
-      const rec = new SR();
+      let rec;
+      try { rec = new SR(); } catch (e) { say(LP.dictationHint(), 'err'); return; }
       rec.lang = 'uk-UA';
       rec.interimResults = true;
       rec.continuous = true;
       const base = field.value.trim();
       let finals = '';
       let stopped = false;
+      let heard = false;
+      let failed = '';
+      const t0 = Date.now();
       const show = (interim) => {
         const said = (finals + ' ' + interim).replace(/\s+/g, ' ').trim();
         field.value = base && said ? base + (/[.!?,;:]$/.test(base) ? ' ' : ', ') + said : base || said;
         field.dispatchEvent(new Event('input', { bubbles: true }));
       };
+      let started = false;
+      rec.onaudiostart = () => { started = true; if (status) say('Слухаю. Говори, а потім натисни мікрофон ще раз.', 'on'); };
+      rec.onspeechstart = () => { if (status && !heard) say('Чую…', 'on'); };
       rec.onresult = (e) => {
+        heard = started = true;
         let interim = '';
         finals = '';
         for (let i = 0; i < e.results.length; i++) {
@@ -39,12 +65,9 @@
           if (e.results[i].isFinal) finals += ' ' + t; else interim += ' ' + t;
         }
         show(interim);
+        if (status) say('Слухаю. Натисни мікрофон, коли закінчиш.', 'on');
       };
-      rec.onerror = (e) => {
-        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') LP.toast('Дозволь доступ до мікрофона в налаштуваннях браузера');
-        else if (e.error === 'network') LP.toast('Для розпізнавання голосу потрібен інтернет');
-        else if (e.error === 'language-not-supported') LP.toast('Цей браузер не розпізнає українську. Спробуй Chrome');
-      };
+      rec.onerror = (e) => { failed = e.error || 'error'; };
       const finish = () => {
         if (stopped) return;
         stopped = true;
@@ -52,13 +75,28 @@
         btn.setAttribute('aria-label', 'Говорити');
         if (active && active.rec === rec) active = null;
         show('');
+        if (failed === 'not-allowed') say('Браузер не дав доступ до мікрофона. Дозволь його в налаштуваннях сайту (значок ліворуч від адреси) і спробуй ще раз.', 'err');
+        else if (failed === 'audio-capture') say('Не бачу мікрофона. Перевір, чи він підключений і чи не зайнятий іншою програмою.', 'err');
+        else if (failed === 'language-not-supported') say('Цей браузер не розпізнає українську. ' + LP.dictationHint(), 'err');
+        else if (failed && failed !== 'no-speech' && failed !== 'aborted') say(LP.dictationHint(), 'err');
+        else if (!heard && (failed === 'no-speech' || Date.now() - t0 > 3000)) say('Нічого не почув. Перевір мікрофон і говори трохи голосніше.', 'err');
+        else if (!heard) say(LP.dictationHint(), 'err');
+        else say('');
         if (onDone) onDone(field.value);
       };
       rec.onend = finish;
-      active = { rec, btn, stop: () => { try { rec.stop(); } catch (e) { /* уже зупинено */ } setTimeout(finish, 600); } };
-      try { rec.start(); } catch (e) { active = null; return LP.toast('Мікрофон зараз недоступний'); }
+      active = { rec, btn, stop: () => { try { rec.stop(); } catch (e) { /* уже зупинено */ } setTimeout(finish, 1200); } };
+      try { rec.start(); } catch (e) { active = null; return say(LP.dictationHint(), 'err'); }
       btn.classList.add('is-on');
       btn.setAttribute('aria-label', 'Зупинити');
+      if (status) say('Вмикаю мікрофон…', 'on');
+      // буває, що браузер мовчки нічого не робить: тоді за кілька секунд зупиняємо й підказуємо інший спосіб
+      setTimeout(() => {
+        if (started || stopped) return;
+        failed = 'silent';
+        try { rec.abort(); } catch (e) { /* немає */ }
+        finish();
+      }, 6000);
       field.focus({ preventScroll: true });
     });
   };
@@ -286,7 +324,8 @@
         <textarea name="aitext" rows="4" maxlength="1500" placeholder="${u.esc(EXAMPLE)}">${u.esc(draft)}</textarea>
         ${LP.micHtml('mic-big')}
       </div>
-      <p class="hint">${LP.voiceSupported ? 'Натисни мікрофон і говори або напиши.' : 'Напиши, що запланувати.'} Справи, цілі, позначки на «Році», нотатки. Перед тим як щось додати, покажу, що зрозумів.</p>
+      <p class="ai-status" role="status" aria-live="polite" hidden></p>
+      <p class="hint">${LP.voiceSupported ? 'Натисни мікрофон і говори або напиши.' : 'Напиши або надиктуй (як саме, підкаже мікрофон).'} Справи, цілі, позначки на «Році», нотатки. Перед тим як щось додати, покажу, що зрозумів.</p>
       <p class="hint ai-privacy">Текст, назви цілей і періодів та зайняті години йдуть у Claude (Anthropic) для розбору й не зберігаються. Решта планера лишається зашифрованою.</p>`;
 
     const listBody = () => `
@@ -339,7 +378,8 @@
       if (step === 'say') {
         const ta = form.elements.aitext;
         ta.addEventListener('input', () => { draft = ta.value; });
-        LP.bindMic(form.querySelector('[data-mic]'), ta);
+        const st = form.querySelector('.ai-status');
+        LP.bindMic(form.querySelector('[data-mic]'), ta, { status: (t, kind) => { st.hidden = !t; st.textContent = t || ''; st.className = 'ai-status' + (kind ? ' is-' + kind : ''); } });
         if (!LP.isMobile()) setTimeout(() => ta.focus(), 30);
       }
     }
