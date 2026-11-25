@@ -45,10 +45,32 @@ window.LP = window.LP || {};
       if (onSubmit(form) !== false) LP.closeModal();
     });
     document.body.appendChild(wrap);
+    guardPull(wrap);
     if (onOpen) onOpen(form);
+    // на телефоні не відкриваємо клавіатуру одразу: вона закриває пів вікна й зсуває його вгору
     const first = form.querySelector('input[type=text]:not([readonly]), textarea');
-    if (first) setTimeout(() => first.focus(), 0);
+    if (first && !LP.isMobile()) setTimeout(() => first.focus(), 0);
   };
+
+  // Safari на телефоні: потягнути вниз, коли вікно вже вгорі, означає «оновити сторінку». Не даємо цьому статися,
+  // але залишаємо прокрутку самого вікна й полів із довгим текстом.
+  function guardPull(wrap) {
+    let y0 = 0, x0 = 0;
+    wrap.addEventListener('touchstart', (e) => { y0 = e.touches[0].clientY; x0 = e.touches[0].clientX; }, { passive: true });
+    wrap.addEventListener('touchmove', (e) => {
+      if (e.touches.length > 1 || e.target.closest('input[type=range], [data-drag], canvas, svg, .csel-pop, .dp-pop')) return;
+      const dy = e.touches[0].clientY - y0;
+      if (Math.abs(e.touches[0].clientX - x0) > Math.abs(dy)) return; // рух убік — не наша справа
+      for (let el = e.target; el && el !== wrap.parentNode; el = el.parentElement) {
+        if (el.scrollHeight > el.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(el).overflowY)) {
+          if (dy > 0 && el.scrollTop > 0) return;                                        // є куди гортати вгору
+          if (dy < 0 && el.scrollTop + el.clientHeight < el.scrollHeight - 1) return;  // є куди вниз
+        }
+        if (el === wrap) break;
+      }
+      if (e.cancelable) e.preventDefault();
+    }, { passive: false });
+  }
 
   // вікно зникає плавно (≈0,16 с), а для решти коду воно закрите одразу
   LP.closeModal = () => document.querySelectorAll('.modal-backdrop:not(.is-leaving)').forEach((m) => {

@@ -3221,3 +3221,11 @@ body.calm-on { overflow: hidden; }
 .ai-status.is-err { background: rgba(212, 0, 0, 0.07); border-left: 3px solid var(--red); border-radius: 0 10px 10px 0; color: var(--ink); }
 .mic-btn.is-off { border-style: dashed; }
 .toast { max-width: min(560px, calc(100vw - 32px)); box-sizing: border-box; line-height: 1.45; text-align: center; }
+
+/* Вікна на телефоні: над шапкою (інакше шапка ховає верх вікна), без «оновлення сторінки» потягуванням */
+.modal-backdrop { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+html:has(.modal-backdrop:not(.is-leaving)), html:has(.modal-backdrop:not(.is-leaving)) body { overflow: hidden; overscroll-behavior: none; }
+@media (max-width: 760px) {
+  .modal-backdrop { z-index: 165; padding-top: calc(10px + env(safe-area-inset-top)); }
+  .pop { z-index: 168; }
+}
