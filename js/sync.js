@@ -589,9 +589,12 @@ window.LP = window.LP || {};
     // помічник: фраза → список дій (функція ai-plan; ключ Anthropic лише на сервері)
     async aiPlan(text, ctx) {
       let r;
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 40000);
       try {
-        r = await fetch(`${URL_}/functions/v1/ai-plan`, { method: 'POST', headers: { apikey: KEY, Authorization: 'Bearer ' + (await token()), 'Content-Type': 'application/json' }, body: JSON.stringify({ text, ctx }) });
-      } catch (e) { return { error: 'net' }; }
+        r = await fetch(`${URL_}/functions/v1/ai-plan`, { method: 'POST', signal: ctl.signal, headers: { apikey: KEY, Authorization: 'Bearer ' + (await token()), 'Content-Type': 'application/json' }, body: JSON.stringify({ text, ctx }) });
+      } catch (e) { clearTimeout(timer); return { error: e && e.name === 'AbortError' ? 'timeout' : 'net' }; }
+      clearTimeout(timer);
       let data = {};
       try { data = await r.json(); } catch (e) { /* порожня відповідь */ }
       return r.ok ? data : { error: data.error || 'upstream', limit: data.limit };

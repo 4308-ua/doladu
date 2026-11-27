@@ -29,8 +29,9 @@
   LP.micHtml = (cls = '') => `<button type="button" class="mic-btn ${cls} ${LP.voiceSupported ? '' : 'is-off'}" data-mic aria-label="Говорити" title="${LP.voiceSupported ? 'Натисни й говори. Ще раз, щоб зупинити' : 'Як надиктувати'}">${MIC_SVG}</button>`;
 
   // ---------- Голос ----------
-  let active = null; // { rec, btn, stop }
-  LP.stopListening = () => { if (active) active.stop(); };
+  let active = null; // { btn, stop(), done: Promise } — done виконується, коли текст уже в полі
+  LP.stopListening = () => { if (!active) return Promise.resolve(); const d = active.done; active.stop(); return d; };
+  LP.isListening = () => !!active;
 
   // btn — кнопка мікрофона, field — input/textarea, куди дописується текст
   // status(text, kind) — куди писати стан ('' прибирає); без нього — короткі сповіщення
@@ -41,8 +42,10 @@
       if (active && active.btn === btn) return active.stop();
       if (btn.disabled) return;
       LP.stopListening();
+      // запис цілком і розпізнавання на сервері: не губить довгих фраз і краще знає українську.
+      // Вбудоване розпізнавання браузера — коли сервер недоступний або людина не ввійшла.
+      if (recReady()) return record(btn, field, say, !!status, onDone);
       if (!SR || srFailed) {
-        if (recReady()) return record(btn, field, say, !!status, onDone);
         say(CAN_REC ? 'Запис голосу працює з акаунтом. Увійди або напиши текст.' : LP.dictationHint(), 'err');
         field.focus();
         return;
@@ -54,6 +57,11 @@
       rec.continuous = true;
       const base = field.value.trim();
       let finals = '';
+      let committed = '';      // сказане в попередніх «сесіях» (Safari після паузи починає результати заново)
+      let sessText = '', sessLen = 0, sessFirstFinal = '';
+      let userStop = false;
+      let resolveDone;
+      const done = new Promise((r) => { resolveDone = r; });
       let stopped = false;
       let heard = false;
       let failed = '';
@@ -72,12 +80,18 @@
       rec.onspeechstart = () => { started = true; if (status && !heard) say('Чую…', 'on'); };
       rec.onresult = (e) => {
         heard = started = true;
-        let interim = '';
-        finals = '';
+        let interim = '', fin = '';
         for (let i = 0; i < e.results.length; i++) {
           const t = e.results[i][0].transcript;
-          if (e.results[i].isFinal) finals += ' ' + t; else interim += ' ' + t;
+          if (e.results[i].isFinal) fin += ' ' + t; else interim += ' ' + t;
         }
+        const first = e.results.length ? e.results[0][0].transcript : '';
+        const restarted = e.results.length < sessLen || (sessFirstFinal && first.slice(0, 8) !== sessFirstFinal.slice(0, 8));
+        if (restarted && sessText) committed += ' ' + sessText;
+        sessText = (fin + ' ' + interim).trim();
+        sessLen = e.results.length;
+        sessFirstFinal = e.results.length && e.results[0].isFinal ? first : '';
+        finals = committed + ' ' + fin;
         show(interim);
         if (status) say(stopped ? '' : 'Слухаю. Натисни мікрофон, коли закінчиш.', stopped ? '' : 'on');
       };
@@ -85,6 +99,7 @@
       const finish = () => {
         if (stopped) return;
         stopped = true;
+        finals = (committed + ' ' + sessText).trim();
         btn.classList.remove('is-on');
         btn.setAttribute('aria-label', 'Говорити');
         if (active && active.rec === rec) active = null;
@@ -97,6 +112,7 @@
         else if (!heard) say('Нічого не почув. Натисни мікрофон, скажи фразу й натисни ще раз.', 'err');
         else say('');
         if (onDone) onDone(field.value);
+        resolveDone();
       };
       // вбудоване не працює: перемикаємось на запис і розпізнавання на сервері
       function fallback() {
@@ -104,8 +120,15 @@
         if (['network', 'service-not-allowed', 'language-not-supported', 'silent'].includes(failed)) srFailed = true;
         say(`Розпізнавання браузера не спрацювало${failed ? ` (${failed})` : ''}. Натисни мікрофон ще раз: запишу голос і розпізнаю на сервері.`, 'err');
       }
-      rec.onend = finish;
-      active = { rec, btn, stop: () => { try { rec.stop(); } catch (e) { /* уже зупинено */ } setTimeout(finish, 2500); } };
+      // браузер сам закінчив слухати після паузи: якщо людина ще не натиснула «стоп», слухаємо далі
+      rec.onend = () => {
+        if (!userStop && !stopped && heard && !failed && Date.now() - t0 < 180000) {
+          if (sessText) { committed += ' ' + sessText; sessText = ''; sessLen = 0; sessFirstFinal = ''; }
+          try { rec.start(); return; } catch (e) { /* не вийшло — закінчуємо */ }
+        }
+        finish();
+      };
+      active = { rec, btn, done, stop: () => { userStop = true; try { rec.stop(); } catch (e) { /* уже зупинено */ } setTimeout(finish, 2500); } };
       try { rec.start(); } catch (e) { active = null; return say(LP.dictationHint(), 'err'); }
       btn.classList.add('is-on');
       btn.setAttribute('aria-label', 'Зупинити');
@@ -175,10 +198,15 @@
       btn.setAttribute('aria-label', 'Говорити');
       if (active && active.btn === btn) active = null;
     };
+    let resolveDone;
+    const donePromise = new Promise((r) => { resolveDone = r; });
     mr.onstop = async () => {
       if (done) return;
       done = true;
       cleanup();
+      try { await transcribe(); } finally { resolveDone(); }
+    };
+    const transcribe = async () => {
       const dur = Date.now() - t0;
       if (dur < 800) return say('Запис надто короткий. Натисни мікрофон, скажи фразу й натисни ще раз.', 'err');
       if (peak > 0 && peak < 3) return say('Нічого не почув. Перевір мікрофон і говори трохи голосніше.', 'err');
@@ -201,13 +229,14 @@
       say('');
       if (onDone) onDone(field.value);
     };
-    active = { btn, stop: () => { try { if (mr.state !== 'inactive') mr.stop(); } catch (e) { mr.onstop(); } } };
+    active = { btn, done: donePromise, stop: () => { try { if (mr.state !== 'inactive') mr.stop(); else mr.onstop(); } catch (e) { mr.onstop(); } } };
     mr.start(250);
     btn.classList.add('is-on');
     btn.setAttribute('aria-label', 'Зупинити');
-    const show = () => say(`Записую ${Math.floor(sec() / 60)}:${String(sec() % 60).padStart(2, '0')}. Натисни мікрофон, коли закінчиш.`, 'on');
+    const MAX_S = 180;
+    const show = () => say(`Записую ${Math.floor(sec() / 60)}:${String(sec() % 60).padStart(2, '0')}. ${sec() >= MAX_S - 15 ? `Ще ${MAX_S - sec()} с, потім зупиню сам.` : 'Натисни мікрофон або «Розібрати», коли закінчиш.'}`, 'on');
     if (live) { show(); tick = setInterval(show, 500); } else say('Записую. Натисни мікрофон ще раз, коли закінчиш.');
-    limit = setTimeout(() => active && active.btn === btn && active.stop(), 90000);
+    limit = setTimeout(() => active && active.btn === btn && active.stop(), MAX_S * 1000);
     field.focus({ preventScroll: true });
   }
 
@@ -526,6 +555,7 @@
     money: 'Помічник тимчасово не працює.',
     auth: 'Увійди в акаунт ще раз.',
     net: 'Немає звʼязку з сервером.',
+    timeout: 'Сервер не відповів за 45 секунд. Текст лишився в полі, спробуй ще раз.',
     empty: 'Скажи або напиши, що запланувати.',
   };
   const EXAMPLE = 'Наприклад: завтра о 10 зубний, у четвер ввечері подзвонити мамі хвилин на 15, відклав 2000 на синтезатор';
@@ -568,7 +598,9 @@
   }
 
   // ---------- Вікно помічника ----------
-  let draft = '';
+  const DRAFT_KEY = 'life-planner.aiDraft';
+  let draft = (() => { try { return localStorage.getItem(DRAFT_KEY) || ''; } catch (e) { return ''; } })();
+  const keepDraft = (t) => { draft = t; try { if (t) localStorage.setItem(DRAFT_KEY, t); else localStorage.removeItem(DRAFT_KEY); } catch (e) { /* приватний режим */ } };
   LP.openAssistant = function ({ listen = false } = {}) {
     if (!LP.sync || !LP.sync.signedIn) {
       return LP.modal({
@@ -596,7 +628,7 @@
 
     const listBody = () => `
       ${say ? `<p class="ai-say-msg">${u.esc(say)}</p>` : ''}
-      ${actions.length ? `<ul class="ai-list">${actions.map(rowHtml).join('')}</ul>
+      ${actions.length ? `<ul class="ai-list">${actions.map((a, i) => { try { return rowHtml(a, i); } catch (e) { console.warn('ai: рядок', a, e); return ''; } }).join('')}</ul>
         <p class="hint">Зніми галочку з того, що не треба. Назву можна виправити.</p>`
         : `<p class="ai-say-msg">${say ? '' : 'Не знайшов, що додати. Спробуй сказати інакше: що, коли й на скільки.'}</p>`}
       ${left != null ? `<p class="hint ai-left mono">СЬОГОДНІ ЛИШИЛОСЬ ЗАПИТІВ: ${left}</p>` : ''}`;
@@ -643,7 +675,7 @@
       sub.disabled = false;
       if (step === 'say') {
         const ta = form.elements.aitext;
-        ta.addEventListener('input', () => { draft = ta.value; });
+        ta.addEventListener('input', () => keepDraft(ta.value));
         const what = form.querySelector('.ai-what');
         what.addEventListener('toggle', () => { if (what.open) what.querySelector('.ai-what-body').innerHTML = whatHtml(ta.value); });
         ta.addEventListener('input', () => { if (what.open) what.querySelector('.ai-what-body').innerHTML = whatHtml(ta.value); });
@@ -653,43 +685,62 @@
       }
     }
     async function ask(form) {
-      LP.stopListening();
+      const sub = form.querySelector('button[type=submit]');
+      if (LP.isListening()) {
+        // спершу дочекатися, поки сказане зʼявиться в полі
+        busy = true;
+        sub.disabled = true;
+        sub.textContent = 'Дописую…';
+        await LP.stopListening();
+        busy = false;
+        if (!document.body.contains(form)) return;
+      }
       const ta = form.elements.aitext;
       const text = ((ta && ta.value) || draft).trim();
-      draft = text;
+      keepDraft(text);
       if (!text) return errors(form, ERR.empty);
       busy = true;
-      const sub = form.querySelector('button[type=submit]');
       sub.disabled = true;
       sub.textContent = 'Розбираю…';
       errors(form, '');
-      const res = await LP.sync.aiPlan(text, context(text));
-      busy = false;
-      if (!document.body.contains(form)) return;
-      if (res.error) {
-        sub.disabled = false;
-        sub.textContent = 'Розібрати';
-        return errors(form, res.error === 'limit' && res.limit ? `На сьогодні запити скінчились (${res.limit} на день). Завтра знову.` : ERR[res.error] || 'Не вийшло розібрати. Спробуй ще раз.');
+      const t0 = Date.now();
+      const tick = setInterval(() => { const s = Math.round((Date.now() - t0) / 1000); if (s >= 3) sub.textContent = `Розбираю… ${s} с`; }, 1000);
+      const reset = (msg) => { clearInterval(tick); busy = false; sub.disabled = false; sub.textContent = 'Розібрати'; if (msg) errors(form, msg); };
+      let res;
+      try {
+        // без відповіді за 45 секунд — чесно кажемо й даємо спробувати ще раз (текст лишається в полі)
+        res = await Promise.race([LP.sync.aiPlan(text, context(text)), new Promise((r) => setTimeout(() => r({ error: 'timeout' }), 45000))]);
+      } catch (e) { res = { error: 'net' }; }
+      if (!document.body.contains(form)) { clearInterval(tick); busy = false; return; }
+      if (res.error) return reset(res.error === 'limit' && res.limit ? `На сьогодні запити скінчились (${res.limit} на день). Завтра знову.` : ERR[res.error] || 'Не вийшло розібрати. Спробуй ще раз.');
+      try {
+        const seen = new Set();
+        actions = (res.actions || []).map((a) => { try { return clean(a); } catch (e) { console.warn('ai: дія', a, e); return null; } }).filter((a) => {
+          if (!a) return false;
+          const key = JSON.stringify(a);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        say = typeof res.say === 'string' ? res.say : '';
+        left = typeof res.left === 'number' ? res.left : null;
+        step = 'list';
+        clearInterval(tick);
+        busy = false;
+        draw(form);
+      } catch (e) {
+        console.error('ai: показ відповіді', e);
+        step = 'say';
+        reset('Відповідь прийшла, але не вийшло її показати. Спробуй ще раз, а якщо повториться — напиши відгук.');
       }
-      const seen = new Set();
-      actions = (res.actions || []).map(clean).filter((a) => {
-        if (!a) return false;
-        const key = JSON.stringify(a);
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-      say = typeof res.say === 'string' ? res.say : '';
-      left = typeof res.left === 'number' ? res.left : null;
-      step = 'list';
-      draw(form);
     }
     function confirm(form) {
       if (!actions.length) { step = 'say'; draw(form); return false; }
       const chosen = [];
       const errs = [];
       actions.forEach((a, i) => {
-        if (!form.elements['on' + i].checked) return;
+        const on = form.elements['on' + i];
+        if (!on || !on.checked) return;
         const b = Object.assign({}, a);
         const t = form.elements['t' + i];
         if (t) b.title = t.value.trim();
@@ -705,7 +756,7 @@
       if (errs.length) { errors(form, errs[0]); return false; }
       if (!chosen.length) { errors(form, 'Не вибрано нічого.'); return false; }
       const { n, forms } = apply(chosen);
-      draft = '';
+      keepDraft('');
       if (n) LP.toast(n === 1 ? 'Додано' : `Додано: ${n}`);
       if (forms.length) setTimeout(() => LP.openGoalForm(forms[0]), 0);
       return true;
